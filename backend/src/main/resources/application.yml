@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: smart-market-watchlist
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/smartwatch}
+    username: ${DATABASE_USERNAME:smartwatch}
+    password: ${DATABASE_PASSWORD:}
+    hikari:
+      # Persistence is not implemented yet. The pool is allowed to start while
+      # PostgreSQL is still down so local API work does not depend on Docker.
+      initialization-fail-timeout: -1
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    # Explicit dialect so startup does not need a live PostgreSQL connection.
+    # Hibernate logs that this can be omitted; omitting it fails while the database is down.
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate.boot.allow_jdbc_metadata_access: false
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    db:
+      # Persistence is not implemented yet. Skip the database check so Actuator
+      # does not wait on PostgreSQL while it is stopped.
+      enabled: false
