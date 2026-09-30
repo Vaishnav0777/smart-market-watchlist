@@ -18,15 +18,17 @@ The system is a modular monolith: one Next.js frontend and one Spring Boot backe
 frontend/
 backend/
   com.smartwatch
-    common
+    common         auditing, health endpoint
     marketdata
-      controller   reserved for later HTTP adapters
-      model
+      entity       Instrument
+      model        Quote and historical bars
       provider     MarketDataProvider
+      repository
       service
-    user           reserved
-    watchlist      reserved
-    portfolio      reserved
+      controller   reserved for later HTTP adapters
+    user           User identity, no authentication
+    watchlist      Watchlist and WatchlistItem
+    portfolio      Portfolio and Position
 infrastructure/    reserved for later deployment configuration
 docs/
 ```
@@ -42,7 +44,7 @@ MarketDataProvider
 
 `MarketDataService` depends on the interface. The rest of the application will call the service. A licensed provider can replace the mock later without changing the service, the other domain packages, or the frontend.
 
-PostgreSQL is configured and not used for storage yet. Redis is defined for local development and the backend does not connect to it yet. See [docs/architecture.md](docs/architecture.md).
+PostgreSQL stores users, instruments, watchlists, and portfolios. Flyway creates the schema and Hibernate validates it. Redis is defined for local development and the backend does not connect to it yet. See [docs/architecture.md](docs/architecture.md).
 
 ## Technology stack
 
@@ -51,11 +53,11 @@ PostgreSQL is configured and not used for storage yet. Redis is defined for loca
 | Frontend | Next.js 16, App Router, TypeScript, Tailwind CSS, ESLint |
 | Backend | Java 21, Spring Boot 4.1.1, Maven |
 | API | REST |
-| Database | PostgreSQL 17, configured for later use |
+| Database | PostgreSQL 17, Flyway migrations, Spring Data JPA |
 | Cache | Redis 8, local service only |
 | Local services | Docker Compose |
 
-Spring Boot dependencies in this foundation: Spring Web, Spring Validation, Spring Data JPA, the PostgreSQL driver, and Spring Boot Actuator.
+Spring Boot dependencies: Spring Web, Spring Validation, Spring Data JPA, Flyway, the PostgreSQL driver, and Spring Boot Actuator.
 
 Planned later, and not present in this repository: authentication, Kafka, AI, AWS, Terraform, and GitHub Actions.
 
@@ -81,16 +83,16 @@ Implemented:
 
 - Next.js landing page
 - Spring Boot API with `GET /api/v1/health`
-- Market-data port, domain models, and synthetic provider
-- PostgreSQL configuration through environment variables
+- Market-data port, quote models, and synthetic provider
+- Persistent users, instruments, watchlists, watchlist items, portfolios, and positions
+- Flyway schema migration and Spring Data repositories
 - Docker Compose services for PostgreSQL and Redis
 - Maven Wrapper
 
 Not implemented yet:
 
-- Authentication and persistent user state
-- Watchlist and portfolio features
-- Database schema
+- Authentication
+- Watchlist and portfolio HTTP APIs
 - Redis client usage
 - Meaningful-change detection
 - Market or portfolio analytics
@@ -130,7 +132,7 @@ Stop them:
 docker compose down
 ```
 
-The API can start without these containers. Persistence and caching are not wired up yet. When you do start the backend against PostgreSQL, export the database variables first. Spring Boot does not read `.env` on its own:
+The API requires PostgreSQL. Redis is not used by the application yet. Export the database variables before starting the backend. Spring Boot does not read `.env` on its own:
 
 ```bash
 set -a
@@ -165,6 +167,8 @@ Run the tests:
 cd backend
 ./mvnw test
 ```
+
+Integration tests start PostgreSQL with Testcontainers, using the same `postgres:17-alpine` image as Docker Compose. Docker must be running. The tests check unique constraints and decimal persistence against PostgreSQL.
 
 Database passwords and future secrets come from the environment. Do not hardcode them. See `.env.example` and `backend/.env.example`.
 

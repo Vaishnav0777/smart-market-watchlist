@@ -1,4 +1,4 @@
 /**
- * Reserved for portfolio holdings and analytics. Not implemented yet.
+ * User-owned portfolios and positions. A position does not store a market price.
  */
 package com.smartwatch.portfolio;

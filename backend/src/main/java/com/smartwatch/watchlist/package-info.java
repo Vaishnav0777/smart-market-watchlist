@@ -1,4 +1,4 @@
 /**
- * Reserved for watchlist management. Not implemented yet.
+ * User-owned watchlists and the instruments on them.
  */
 package com.smartwatch.watchlist;
