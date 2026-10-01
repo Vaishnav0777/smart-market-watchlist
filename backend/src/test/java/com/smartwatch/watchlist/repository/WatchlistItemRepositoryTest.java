@@ -35,7 +35,7 @@ class WatchlistItemRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void rejectsTheSameInstrumentTwiceInOneWatchlist() {
-        User user = userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
+        User user = userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
         Instrument reliance = instrumentRepository.saveAndFlush(equity("NSE", "RELIANCE"));
         Watchlist watchlist = watchlistRepository.saveAndFlush(new Watchlist(user, "Long Term"));
 
@@ -48,7 +48,7 @@ class WatchlistItemRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void allowsTheSameInstrumentOnDifferentWatchlists() {
-        User user = userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
+        User user = userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
         Instrument reliance = instrumentRepository.saveAndFlush(equity("NSE", "RELIANCE"));
         Watchlist longTerm = watchlistRepository.saveAndFlush(new Watchlist(user, "Long Term"));
         Watchlist ideas = watchlistRepository.saveAndFlush(new Watchlist(user, "Trading Ideas"));
@@ -61,8 +61,8 @@ class WatchlistItemRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void rejectsDuplicateWatchlistNamesForOneUser() {
-        User user = userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
-        User other = userRepository.saveAndFlush(new User("grace@example.com", "Grace"));
+        User user = userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
+        User other = userRepository.saveAndFlush(new User("grace@example.com", "test-password-hash", "Grace"));
         watchlistRepository.saveAndFlush(new Watchlist(user, "Long Term"));
         watchlistRepository.saveAndFlush(new Watchlist(other, "Long Term"));
 

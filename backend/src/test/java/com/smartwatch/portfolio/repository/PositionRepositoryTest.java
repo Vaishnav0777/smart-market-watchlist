@@ -41,7 +41,7 @@ class PositionRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void rejectsASecondPositionForTheSameInstrument() {
-        User user = userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
+        User user = userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
         Instrument reliance = instrumentRepository.saveAndFlush(equity("NSE", "RELIANCE"));
         Portfolio portfolio = portfolioRepository.saveAndFlush(new Portfolio(user, "Long Term Portfolio"));
 
@@ -54,7 +54,7 @@ class PositionRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void allowsTheSameInstrumentInDifferentPortfolios() {
-        User user = userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
+        User user = userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
         Instrument reliance = instrumentRepository.saveAndFlush(equity("NSE", "RELIANCE"));
         Portfolio longTerm = portfolioRepository.saveAndFlush(new Portfolio(user, "Long Term Portfolio"));
         Portfolio paper = portfolioRepository.saveAndFlush(new Portfolio(user, "Paper Trading"));
@@ -67,7 +67,7 @@ class PositionRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void persistsQuantityAndAverageBuyPriceAsExactDecimals() {
-        User user = userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
+        User user = userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
         Instrument reliance = instrumentRepository.saveAndFlush(equity("NSE", "RELIANCE"));
         Portfolio portfolio = portfolioRepository.saveAndFlush(new Portfolio(user, "Long Term Portfolio"));
         Position saved = positionRepository.saveAndFlush(
@@ -84,7 +84,7 @@ class PositionRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void rejectsDuplicatePortfolioNamesForOneUser() {
-        User user = userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
+        User user = userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
         portfolioRepository.saveAndFlush(new Portfolio(user, "Long Term Portfolio"));
 
         assertThatThrownBy(() -> portfolioRepository.saveAndFlush(new Portfolio(user, "Long Term Portfolio")))

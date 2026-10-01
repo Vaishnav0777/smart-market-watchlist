@@ -20,7 +20,7 @@ class UserRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void persistsUserAndFindsByEmail() {
-        User saved = userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
+        User saved = userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
 
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getCreatedAt()).isNotNull();
@@ -30,9 +30,9 @@ class UserRepositoryTest extends PostgresIntegrationTest {
 
     @Test
     void rejectsDuplicateEmail() {
-        userRepository.saveAndFlush(new User("ada@example.com", "Ada"));
+        userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada"));
 
-        assertThatThrownBy(() -> userRepository.saveAndFlush(new User("ada@example.com", "Ada Lovelace")))
+        assertThatThrownBy(() -> userRepository.saveAndFlush(new User("ada@example.com", "test-password-hash", "Ada Lovelace")))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 }

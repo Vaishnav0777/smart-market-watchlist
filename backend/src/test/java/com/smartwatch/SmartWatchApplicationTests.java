@@ -50,7 +50,8 @@ class SmartWatchApplicationTests extends PostgresIntegrationTest {
         var current = flyway.info().current();
 
         assertThat(current).isNotNull();
-        assertThat(current.getVersion().getVersion()).isEqualTo("1");
+        assertThat(current.getVersion().getVersion()).isEqualTo("2");
         assertThat(current.getState()).isEqualTo(MigrationState.SUCCESS);
+        assertThat(flyway.info().applied()).hasSize(2);
     }
 }

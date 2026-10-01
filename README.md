@@ -85,13 +85,13 @@ Implemented:
 - Spring Boot API with `GET /api/v1/health`
 - Market-data port, quote models, and synthetic provider
 - Persistent users, instruments, watchlists, watchlist items, portfolios, and positions
-- Flyway schema migration and Spring Data repositories
+- Registration, login, JWT access tokens, and rotating refresh sessions
+- Flyway schema migrations and Spring Data repositories
 - Docker Compose services for PostgreSQL and Redis
 - Maven Wrapper
 
 Not implemented yet:
 
-- Authentication
 - Watchlist and portfolio HTTP APIs
 - Redis client usage
 - Meaningful-change detection
@@ -132,7 +132,7 @@ Stop them:
 docker compose down
 ```
 
-The API requires PostgreSQL. Redis is not used by the application yet. Export the database variables before starting the backend. Spring Boot does not read `.env` on its own:
+The API requires PostgreSQL and `JWT_SECRET`. Redis is not used by the application yet. Export the variables before starting the backend. Spring Boot does not read `.env` on its own:
 
 ```bash
 set -a
