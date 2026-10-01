@@ -1,6 +1,8 @@
 package com.smartwatch.user.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
-public record RefreshTokenRequest(@NotBlank String refreshToken) {
+/**
+ * Optional body for clients that cannot send the refresh cookie.
+ * The browser sends the cookie and omits this value.
+ */
+public record RefreshTokenRequest(String refreshToken) {
 }

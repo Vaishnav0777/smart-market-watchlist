@@ -1,6 +1,7 @@
 package com.smartwatch.user.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
-public record LogoutRequest(@NotBlank String refreshToken) {
+/**
+ * Optional body. Logout prefers the HttpOnly refresh cookie.
+ */
+public record LogoutRequest(String refreshToken) {
 }

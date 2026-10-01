@@ -3,6 +3,7 @@ package com.smartwatch.user.service;
 import com.smartwatch.common.web.ApiException;
 import com.smartwatch.user.dto.AuthResponse;
 import com.smartwatch.user.dto.CurrentUserResponse;
+import com.smartwatch.user.dto.IssuedSession;
 import com.smartwatch.user.entity.User;
 import com.smartwatch.user.security.JwtTokenService;
 import com.smartwatch.user.security.UserPrincipal;
@@ -29,19 +30,19 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse register(String email, String rawPassword, String displayName) {
+    public IssuedSession register(String email, String rawPassword, String displayName) {
         User user = userService.register(email, rawPassword, displayName);
         return issueTokens(user);
     }
 
     @Transactional
-    public AuthResponse login(String email, String rawPassword) {
+    public IssuedSession login(String email, String rawPassword) {
         User user = userService.authenticate(email, rawPassword);
         return issueTokens(user);
     }
 
     @Transactional
-    public AuthResponse refresh(String rawRefreshToken) {
+    public IssuedSession refresh(String rawRefreshToken) {
         User user = refreshTokenService.rotate(rawRefreshToken);
         return issueTokens(user);
     }
@@ -61,13 +62,13 @@ public class AuthService {
         return CurrentUserResponse.from(user);
     }
 
-    private AuthResponse issueTokens(User user) {
+    private IssuedSession issueTokens(User user) {
         String refreshToken = refreshTokenService.issue(user);
         String accessToken = jwtTokenService.issueAccessToken(user.getId());
-        return new AuthResponse(
+        AuthResponse response = new AuthResponse(
                 accessToken,
-                refreshToken,
                 jwtTokenService.accessTokenTtlSeconds(),
                 CurrentUserResponse.from(user));
+        return new IssuedSession(response, refreshToken);
     }
 }

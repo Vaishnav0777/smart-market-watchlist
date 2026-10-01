@@ -1,4 +1,4 @@
-import { clearSession, readSession, writeSession } from "@/lib/session";
+import { clearSession, getAccessToken, setAccessToken } from "@/lib/session";
 import type { ApiErrorBody, AuthResponse } from "@/lib/types";
 
 export class ApiError extends Error {
@@ -33,9 +33,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     headers.set("Content-Type", "application/json");
   }
   if (options.auth !== false) {
-    const session = readSession();
-    if (session) {
-      headers.set("Authorization", `Bearer ${session.accessToken}`);
+    const token = getAccessToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
     }
   }
 
@@ -44,6 +44,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     cache: "no-store",
+    credentials: "include",
   });
 
   if (response.status === 401 && options.auth !== false && options.retry !== false && !isAuthPath(path)) {
@@ -77,18 +78,13 @@ export async function refreshSession(): Promise<boolean> {
 }
 
 async function refreshOnce(): Promise<boolean> {
-  const session = readSession();
-  if (!session) {
-    return false;
-  }
   try {
     const next = await apiRequest<AuthResponse>("/api/v1/auth/refresh", {
       method: "POST",
       auth: false,
       retry: false,
-      body: { refreshToken: session.refreshToken },
     });
-    writeSession(next);
+    setAccessToken(next.accessToken);
     return true;
   } catch {
     clearSession();

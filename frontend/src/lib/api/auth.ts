@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api/client";
-import { clearSession, readSession, writeSession } from "@/lib/session";
+import { clearSession, setAccessToken } from "@/lib/session";
 import type { AuthResponse, CurrentUser } from "@/lib/types";
 
 export async function register(email: string, password: string, displayName: string): Promise<AuthResponse> {
@@ -8,7 +8,7 @@ export async function register(email: string, password: string, displayName: str
     auth: false,
     body: { email, password, displayName },
   });
-  writeSession(auth);
+  setAccessToken(auth.accessToken);
   return auth;
 }
 
@@ -18,7 +18,7 @@ export async function login(email: string, password: string): Promise<AuthRespon
     auth: false,
     body: { email, password },
   });
-  writeSession(auth);
+  setAccessToken(auth.accessToken);
   return auth;
 }
 
@@ -27,16 +27,12 @@ export async function currentUser(): Promise<CurrentUser> {
 }
 
 export async function logout(): Promise<void> {
-  const session = readSession();
   try {
-    if (session) {
-      await apiRequest<void>("/api/v1/auth/logout", {
-        method: "POST",
-        auth: false,
-        retry: false,
-        body: { refreshToken: session.refreshToken },
-      });
-    }
+    await apiRequest<void>("/api/v1/auth/logout", {
+      method: "POST",
+      auth: false,
+      retry: false,
+    });
   } finally {
     clearSession();
   }

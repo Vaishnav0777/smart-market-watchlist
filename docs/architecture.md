@@ -19,7 +19,7 @@ MarketDataProvider
 
 `MarketDataService` is the only market-data entry point for the rest of the application. It depends on the `MarketDataProvider` interface. The mock implementation is a Spring component today, so it is injected automatically. A later licensed provider can replace it without changing the service, the domain packages, or the frontend.
 
-The Next.js application is the product UI. It calls the existing REST API through one client. Access and refresh tokens stay in the browser tab (`sessionStorage`) because the auth API returns them in JSON. They are not written into source or `NEXT_PUBLIC_*` variables. Reading a watchlist still does not move the check cursor. The dashboard shows the change response from `GET /api/v1/watchlists/{id}/changes` and records a check only when the user chooses `POST /api/v1/watchlists/{id}/checks`.
+The Next.js application is the product UI. It calls the existing REST API through one client. The refresh token is an HttpOnly cookie and is not placed in JavaScript storage. The access token stays in memory. Neither is written into source or `NEXT_PUBLIC_*` variables. Reading a watchlist still does not move the check cursor. The dashboard shows the change response from `GET /api/v1/watchlists/{id}/changes` and records a check only when the user chooses `POST /api/v1/watchlists/{id}/checks`.
 
 Instrument search (`GET /api/v1/instruments?q=`) reads the provider catalog and creates a persisted identity only when that listing does not already exist. It does not store prices and does not accept an arbitrary symbol from the client. `GET /api/v1/market/quotes` returns the current provider quotes without writing them. `GET /api/v1/portfolios` returns stored holdings for the signed-in user and attaches a quote when the exchange and symbol match. It does not create portfolios.
 
@@ -77,7 +77,7 @@ Access tokens and refresh tokens have different jobs:
 | Token | What it is | Where it lives | Lifetime |
 | --- | --- | --- | --- |
 | Access token | Signed JWT. Claims are the user id (`sub`) and `token_type=access`. | Only with the client. The server does not store it. | About 15 minutes, configurable. |
-| Refresh token | 32 random bytes, encoded for the client. | PostgreSQL stores only the SHA-256 hex digest, plus expiry and revocation. | About 7 days, configurable. |
+| Refresh token | 32 random bytes. The JSON body does not include it. | HttpOnly cookie `smw_refresh`. PostgreSQL stores only the SHA-256 hex digest, plus expiry and revocation. | About 7 days, configurable. |
 
 A successful refresh revokes the presented session and issues a new refresh token. Logout revokes the session and can be repeated. A disabled account is rejected on the next protected request even if the access token has not expired yet. That check is one lookup by primary key.
 
@@ -85,7 +85,7 @@ Passwords are hashed with Spring Security's `BCryptPasswordEncoder`. Login uses 
 
 `JWT_SECRET` comes from the environment and must be at least 32 bytes. Access and refresh lifetimes are `JWT_ACCESS_TOKEN_TTL` and `JWT_REFRESH_TOKEN_TTL`. The signing implementation is Spring Security's Nimbus `JwtEncoder` (`spring-security-oauth2-jose`), using HMAC-SHA256. There is no OAuth authorization server.
 
-Public routes are health, register, login, refresh, and logout. `/api/v1/auth/me`, `/api/v1/watchlists`, and every other route require `Authorization: Bearer`. The API does not use server sessions. CSRF is disabled because the browser is not granted a cookie session.
+Public routes are health, register, login, refresh, and logout. `/api/v1/auth/me`, `/api/v1/watchlists`, and every other route require `Authorization: Bearer`. The API does not use server sessions. The refresh cookie is `SameSite=Lax` and is sent only to `/api/v1/auth`, so a cross-site form post does not carry it. Set `COOKIE_SECURE=true` when the site is served over HTTPS.
 
 ## Watchlist API
 
@@ -144,4 +144,4 @@ Membership added or removed is the difference between the current items and the 
 
 The Next.js app is a client of these HTTP APIs. Pages for the dashboard, watchlists, instrument detail, and portfolio render the JSON the backend returns. Percentages on a quote versus its own previous close are display arithmetic on those two fields. Meaningful-change sentences, severity, and counts come only from the change API.
 
-Session tokens live in `sessionStorage` for the current tab. Logout calls `POST /api/v1/auth/logout` with the refresh token and then clears that storage. A normal watchlist read does not acknowledge a check. The "Mark as checked" action is the explicit cursor update.
+The refresh token is an HttpOnly `SameSite=Lax` cookie named `smw_refresh`, scoped to `/api/v1/auth`. The JSON auth response contains only the short-lived access token. The browser keeps that access token in memory. Logout revokes the refresh session and clears the cookie. A normal watchlist read does not acknowledge a check. The "Mark as checked" action is the explicit cursor update.

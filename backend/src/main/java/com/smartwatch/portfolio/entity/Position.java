@@ -70,6 +70,11 @@ public class Position extends AuditableEntity {
         return averageBuyPrice;
     }
 
+    public void changeHolding(BigDecimal quantity, BigDecimal averageBuyPrice) {
+        this.quantity = quantity;
+        this.averageBuyPrice = averageBuyPrice;
+    }
+
     @Override
     public String toString() {
         return "Position{id=" + getId() + ", quantity=" + quantity + ", averageBuyPrice=" + averageBuyPrice + "}";

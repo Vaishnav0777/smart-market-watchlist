@@ -62,12 +62,13 @@ A real Indian market-data feed needs a provider the project is allowed to use. U
 
 Implemented:
 
-- Registration, login, logout, JWT access tokens, and rotating refresh sessions
+- Registration, login, logout, short-lived JWT access tokens, and rotating refresh sessions
+- Refresh token in an HttpOnly `SameSite=Lax` cookie (`smw_refresh`). It is not returned in JSON and is not stored in `sessionStorage`
 - Authenticated watchlists: create, rename, delete, add, remove, and reorder items
 - Synthetic quotes through `MockMarketDataProvider`
 - Instrument search that resolves provider listings to persisted identities
 - Market observations and meaningful-change detection since an explicit check
-- Read-only portfolio and position API for holdings that already exist
+- Portfolio create, rename, delete, and position add, edit, and remove for the signed-in owner
 - Next.js screens for sign-in, dashboard, watchlists, search, instrument detail, portfolio, and account
 - Flyway schema migrations and integration tests
 - Docker Compose services for PostgreSQL and Redis
@@ -75,7 +76,6 @@ Implemented:
 Not implemented yet:
 
 - A licensed or real-time market-data provider
-- Creating or editing portfolios from the UI
 - Redis client usage
 - Broker integration
 - AI assistant or price prediction
@@ -107,10 +107,13 @@ cp .env.example .env
 | `JWT_ACCESS_TOKEN_TTL`, `JWT_REFRESH_TOKEN_TTL` | Backend | Optional token lifetimes |
 | `SERVER_PORT` | Backend | API port, default `8080` |
 | `CORS_ALLOWED_ORIGINS` | Backend | Browser origin allowed to call the API directly |
+| `COOKIE_SECURE` | Backend | Set `true` when the site is served over HTTPS. Leave `false` for local HTTP |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend | Optional absolute API origin. Leave empty to use the Next.js proxy |
 | `API_PROXY_TARGET` | Frontend server | Proxy destination for `/api`, default `http://localhost:8080` |
 
 `NEXT_PUBLIC_*` is visible in the browser. Do not put `JWT_SECRET`, database passwords, or tokens there.
+
+Leave `NEXT_PUBLIC_API_BASE_URL` empty in local development. The browser then calls `/api` on the Next.js server, which proxies to the backend, so the refresh cookie stays on the same site. The access token lives only in memory and is replaced by `POST /api/v1/auth/refresh` after a reload. Market prices are still synthetic. The application does not predict prices and is not connected to a live market-data provider.
 
 Spring Boot does not read `.env` on its own. Export it before starting the backend:
 

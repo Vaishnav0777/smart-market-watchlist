@@ -7,7 +7,6 @@ export type CurrentUser = {
 
 export type AuthResponse = {
   accessToken: string;
-  refreshToken: string;
   expiresInSeconds: number;
   user: CurrentUser;
 };

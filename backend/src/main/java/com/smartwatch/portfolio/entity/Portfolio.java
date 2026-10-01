@@ -51,6 +51,10 @@ public class Portfolio extends AuditableEntity {
         return name;
     }
 
+    public void renameTo(String name) {
+        this.name = name;
+    }
+
     public List<Position> getPositions() {
         return positions;
     }

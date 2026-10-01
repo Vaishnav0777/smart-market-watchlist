@@ -44,7 +44,7 @@ export default function AccountPage() {
         </div>
       </dl>
       <p className="text-sm leading-6 text-muted">
-        Signing out revokes the current refresh session. The access token is kept only in this browser tab and is not written to the page source.
+        Signing out revokes the refresh session. The refresh token stays in an HttpOnly cookie. The access token is kept only in memory for this tab.
       </p>
       {error ? <p className="text-sm text-negative" role="alert">{error}</p> : null}
       <button className="button-primary w-fit" type="button" onClick={onLogout} disabled={pending}>

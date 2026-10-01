@@ -1,7 +1,8 @@
 "use client";
 
 import { currentUser, login as loginRequest, logout as logoutRequest, register as registerRequest } from "@/lib/api/auth";
-import { clearSession, readSession } from "@/lib/session";
+import { refreshSession } from "@/lib/api/client";
+import { clearSession } from "@/lib/session";
 import type { CurrentUser } from "@/lib/types";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
@@ -23,21 +24,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    const session = readSession();
-    if (!session) {
-      queueMicrotask(() => {
-        if (!cancelled) {
+    refreshSession()
+      .then((restored) => {
+        if (cancelled) {
+          return null;
+        }
+        if (!restored) {
           setUser(null);
           setStatus("anonymous");
+          return null;
         }
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-    currentUser()
+        return currentUser();
+      })
       .then((next) => {
-        if (cancelled) {
+        if (cancelled || next == null) {
           return;
         }
         setUser(next);

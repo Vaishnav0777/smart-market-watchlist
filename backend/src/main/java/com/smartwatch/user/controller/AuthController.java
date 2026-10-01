@@ -1,16 +1,22 @@
 package com.smartwatch.user.controller;
 
+import com.smartwatch.common.web.ApiException;
 import com.smartwatch.user.dto.AuthResponse;
 import com.smartwatch.user.dto.CurrentUserResponse;
+import com.smartwatch.user.dto.IssuedSession;
 import com.smartwatch.user.dto.LoginRequest;
 import com.smartwatch.user.dto.LogoutRequest;
 import com.smartwatch.user.dto.RefreshTokenRequest;
 import com.smartwatch.user.dto.RegisterRequest;
+import com.smartwatch.user.security.RefreshCookie;
 import com.smartwatch.user.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,9 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final RefreshCookie refreshCookie;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, RefreshCookie refreshCookie) {
         this.authService = authService;
+        this.refreshCookie = refreshCookie;
     }
 
     @PostMapping("/register")
@@ -38,14 +46,24 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        return tokenResponse(HttpStatus.OK, authService.refresh(request.refreshToken()));
+    public ResponseEntity<AuthResponse> refresh(
+            @CookieValue(name = RefreshCookie.NAME, required = false) String cookieToken,
+            @RequestBody(required = false) RefreshTokenRequest request) {
+        return tokenResponse(HttpStatus.OK, authService.refresh(requireRefreshToken(cookieToken, request)));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request) {
-        authService.logout(request.refreshToken());
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = RefreshCookie.NAME, required = false) String cookieToken,
+            @RequestBody(required = false) LogoutRequest request) {
+        String token = firstToken(cookieToken, request == null ? null : request.refreshToken());
+        if (token != null) {
+            authService.logout(token);
+        }
+        return ResponseEntity.noContent()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.clear().toString())
+                .build();
     }
 
     @GetMapping("/me")
@@ -53,7 +71,29 @@ public class AuthController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(authService.currentUser());
     }
 
-    private static ResponseEntity<AuthResponse> tokenResponse(HttpStatus status, AuthResponse body) {
-        return ResponseEntity.status(status).cacheControl(CacheControl.noStore()).body(body);
+    private ResponseEntity<AuthResponse> tokenResponse(HttpStatus status, IssuedSession issued) {
+        ResponseCookie cookie = refreshCookie.write(issued.refreshToken());
+        return ResponseEntity.status(status)
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(issued.response());
+    }
+
+    private static String requireRefreshToken(String cookieToken, RefreshTokenRequest request) {
+        String token = firstToken(cookieToken, request == null ? null : request.refreshToken());
+        if (token == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
+        return token;
+    }
+
+    private static String firstToken(String cookieToken, String bodyToken) {
+        if (cookieToken != null && !cookieToken.isBlank()) {
+            return cookieToken;
+        }
+        if (bodyToken != null && !bodyToken.isBlank()) {
+            return bodyToken;
+        }
+        return null;
     }
 }

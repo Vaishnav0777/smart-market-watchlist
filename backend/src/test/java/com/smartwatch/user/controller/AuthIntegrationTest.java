@@ -8,6 +8,9 @@ import com.smartwatch.user.repository.RefreshSessionRepository;
 import com.smartwatch.user.repository.UserRepository;
 import com.smartwatch.user.security.JwtProperties;
 import com.smartwatch.user.security.JwtTokenService;
+import com.smartwatch.user.security.RefreshCookie;
+import jakarta.servlet.http.Cookie;
+import org.springframework.http.HttpHeaders;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,7 +61,7 @@ class AuthIntegrationTest extends PostgresIntegrationTest {
                         .content(registerJson("User@Example.com", PASSWORD, "Ada")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.user.email").value("user@example.com"))
                 .andExpect(jsonPath("$.user.displayName").value("Ada"))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist())
@@ -65,7 +69,7 @@ class AuthIntegrationTest extends PostgresIntegrationTest {
                 .andReturn();
 
         User stored = userRepository.findByEmail("user@example.com").orElseThrow();
-        String refreshToken = JsonPath.read(result.getResponse().getContentAsString(), "$.refreshToken");
+        String refreshToken = refreshToken(result);
         assertThat(stored.getPasswordHash()).isNotEqualTo(PASSWORD);
         assertThat(stored.getPasswordHash()).startsWith("$2");
         assertThat(passwordEncoder.matches(PASSWORD, stored.getPasswordHash())).isTrue();
@@ -128,7 +132,7 @@ class AuthIntegrationTest extends PostgresIntegrationTest {
                         .content(loginJson("Ada@Example.com", PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.user.id").isNotEmpty())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
 
@@ -197,32 +201,28 @@ class AuthIntegrationTest extends PostgresIntegrationTest {
                         .content(registerJson("ada@example.com", PASSWORD, "Ada")))
                 .andExpect(status().isCreated())
                 .andReturn();
-        String originalRefresh = JsonPath.read(registered.getResponse().getContentAsString(), "$.refreshToken");
+        String originalRefresh = refreshToken(registered);
 
         MvcResult refreshed = mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(refreshJson(originalRefresh)))
+                        .cookie(refreshCookie(originalRefresh)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andReturn();
-        String rotatedRefresh = JsonPath.read(refreshed.getResponse().getContentAsString(), "$.refreshToken");
+        String rotatedRefresh = refreshToken(refreshed);
         assertThat(rotatedRefresh).isNotEqualTo(originalRefresh);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(refreshJson(originalRefresh)))
+                        .cookie(refreshCookie(originalRefresh)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Refresh token has been revoked"));
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(refreshJson(rotatedRefresh)))
+                        .cookie(refreshCookie(rotatedRefresh)))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(refreshJson("not-a-real-refresh-token")))
+                        .cookie(refreshCookie("not-a-real-refresh-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Invalid refresh token"));
     }
@@ -234,19 +234,16 @@ class AuthIntegrationTest extends PostgresIntegrationTest {
                         .content(registerJson("ada@example.com", PASSWORD, "Ada")))
                 .andExpect(status().isCreated())
                 .andReturn();
-        String refreshToken = JsonPath.read(registered.getResponse().getContentAsString(), "$.refreshToken");
+        String refreshToken = refreshToken(registered);
 
         mockMvc.perform(post("/api/v1/auth/logout")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(logoutJson(refreshToken)))
+                        .cookie(refreshCookie(refreshToken)))
                 .andExpect(status().isNoContent());
         mockMvc.perform(post("/api/v1/auth/logout")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(logoutJson(refreshToken)))
+                        .cookie(refreshCookie(refreshToken)))
                 .andExpect(status().isNoContent());
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(refreshJson(refreshToken)))
+                        .cookie(refreshCookie(refreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Refresh token has been revoked"));
     }
@@ -258,15 +255,14 @@ class AuthIntegrationTest extends PostgresIntegrationTest {
                         .content(registerJson("ada@example.com", PASSWORD, "Ada")))
                 .andExpect(status().isCreated())
                 .andReturn();
-        String refreshToken = JsonPath.read(registered.getResponse().getContentAsString(), "$.refreshToken");
+        String refreshToken = refreshToken(registered);
         User user = userRepository.findByEmail("ada@example.com").orElseThrow();
         RefreshSession session = refreshSessionRepository.findByUserId(user.getId()).getFirst();
         session.setExpiresAt(Instant.now().minusSeconds(5));
         refreshSessionRepository.saveAndFlush(session);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(refreshJson(refreshToken)))
+                        .cookie(refreshCookie(refreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Refresh token has expired"));
     }
@@ -299,15 +295,24 @@ class AuthIntegrationTest extends PostgresIntegrationTest {
                 """.formatted(email, password);
     }
 
-    private static String refreshJson(String refreshToken) {
-        return """
-                {"refreshToken":"%s"}
-                """.formatted(refreshToken);
+    private static Cookie refreshCookie(String refreshToken) {
+        return new Cookie(RefreshCookie.NAME, refreshToken);
     }
 
-    private static String logoutJson(String refreshToken) {
-        return """
-                {"refreshToken":"%s"}
-                """.formatted(refreshToken);
+    private static String refreshToken(MvcResult result) {
+        String header = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertThat(header).contains("HttpOnly");
+        assertThat(header).contains("SameSite=Lax");
+        assertThat(header).contains("Path=" + RefreshCookie.PATH);
+        String body = new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+        assertThat(body).doesNotContain(RefreshCookie.NAME);
+        String prefix = RefreshCookie.NAME + "=";
+        int start = header.indexOf(prefix);
+        assertThat(start).isGreaterThanOrEqualTo(0);
+        start += prefix.length();
+        int end = header.indexOf(';', start);
+        String token = header.substring(start, end);
+        assertThat(body).doesNotContain(token);
+        return token;
     }
 }
