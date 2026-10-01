@@ -19,6 +19,10 @@ MarketDataProvider
 
 `MarketDataService` is the only market-data entry point for the rest of the application. It depends on the `MarketDataProvider` interface. The mock implementation is a Spring component today, so it is injected automatically. A later licensed provider can replace it without changing the service, the domain packages, or the frontend.
 
+The Next.js application is the product UI. It calls the existing REST API through one client. Access and refresh tokens stay in the browser tab (`sessionStorage`) because the auth API returns them in JSON. They are not written into source or `NEXT_PUBLIC_*` variables. Reading a watchlist still does not move the check cursor. The dashboard shows the change response from `GET /api/v1/watchlists/{id}/changes` and records a check only when the user chooses `POST /api/v1/watchlists/{id}/checks`.
+
+Instrument search (`GET /api/v1/instruments?q=`) reads the provider catalog and creates a persisted identity only when that listing does not already exist. It does not store prices and does not accept an arbitrary symbol from the client. `GET /api/v1/market/quotes` returns the current provider quotes without writing them. `GET /api/v1/portfolios` returns stored holdings for the signed-in user and attaches a quote when the exchange and symbol match. It does not create portfolios.
+
 PostgreSQL connection settings live in `backend/src/main/resources/application.yml` and come from environment variables. Flyway owns the schema (`backend/src/main/resources/db/migration`). Hibernate validates that mapping (`ddl-auto: validate`) and does not create or alter tables.
 
 Persisted timestamps are `Instant` values, stored as `timestamptz` and written in UTC. Monetary amounts and quantities use `BigDecimal` mapped to `NUMERIC(19,4)`. Scale 4 covers paise and average prices that are not whole paise. Floating-point columns are not used.
@@ -135,3 +139,9 @@ Since-last-check lifecycle:
 4. A later read uses that cursor, so the same move is not reported again until the market differs from the new observation.
 
 Membership added or removed is the difference between the current items and the items stored on the cursor. A timestamp cursor can see items added after that time. It cannot see removals, because a deleted membership is no longer a row unless a check snapshot still has it. Another user's watchlist returns the same not-found response as a missing id.
+
+## Frontend
+
+The Next.js app is a client of these HTTP APIs. Pages for the dashboard, watchlists, instrument detail, and portfolio render the JSON the backend returns. Percentages on a quote versus its own previous close are display arithmetic on those two fields. Meaningful-change sentences, severity, and counts come only from the change API.
+
+Session tokens live in `sessionStorage` for the current tab. Logout calls `POST /api/v1/auth/logout` with the refresh token and then clears that storage. A normal watchlist read does not acknowledge a check. The "Mark as checked" action is the explicit cursor update.

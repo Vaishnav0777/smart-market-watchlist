@@ -138,6 +138,15 @@ public class MockMarketDataProvider implements MarketDataProvider {
     }
 
     @Override
+    public List<Quote> listQuotes() {
+        List<Quote> quotes = new ArrayList<>();
+        for (InstrumentSeed instrument : INSTRUMENTS) {
+            getQuote(instrument.symbol()).ifPresent(quotes::add);
+        }
+        return List.copyOf(quotes);
+    }
+
+    @Override
     public List<HistoricalBar> getHistoricalBars(String symbol, LocalDate from, LocalDate to) {
         if (from == null || to == null) {
             throw new IllegalArgumentException("from and to must not be null");

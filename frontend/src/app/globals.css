@@ -5,7 +5,23 @@
   --foreground: #f3efe6;
   --muted: #b7c0c8;
   --brass: #d2b48a;
-  --line: rgba(210, 180, 138, 0.35);
+  --line: rgba(210, 180, 138, 0.28);
+  --surface: #182128;
+  --positive: #8fbfa8;
+  --negative: #d98984;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #f4f1ea;
+    --foreground: #1c2430;
+    --muted: #5c6770;
+    --brass: #8a6232;
+    --line: rgba(28, 36, 48, 0.12);
+    --surface: #fffdf8;
+    --positive: #1f7a4d;
+    --negative: #a33b3b;
+  }
 }
 
 @theme inline {
@@ -14,6 +30,9 @@
   --color-muted: var(--muted);
   --color-brass: var(--brass);
   --color-line: var(--line);
+  --color-surface: var(--surface);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
   --font-sans: var(--font-outfit);
   --font-serif: var(--font-fraunces);
 }
@@ -24,4 +43,46 @@ body {
     var(--background);
   color: var(--foreground);
   font-family: var(--font-outfit), sans-serif;
+}
+
+.surface {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: transparent;
+  padding: 0.65rem 0.8rem;
+  color: var(--foreground);
+}
+
+.field:focus {
+  outline: 2px solid var(--brass);
+  outline-offset: 1px;
+}
+
+.button-primary,
+.button-secondary {
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  font-size: 0.875rem;
+}
+
+.button-primary {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.button-secondary {
+  border: 1px solid var(--line);
+  color: var(--foreground);
+}
+
+.button-primary:disabled,
+.button-secondary:disabled {
+  opacity: 0.5;
 }

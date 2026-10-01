@@ -34,6 +34,17 @@ public interface WatchlistItemRepository extends JpaRepository<WatchlistItem, UU
             """)
     List<WatchlistItem> findDetailedByWatchlistId(@Param("watchlistId") UUID watchlistId);
 
+    @Query("""
+            select item from WatchlistItem item
+            join fetch item.watchlist watchlist
+            where watchlist.user.id = :userId
+              and item.instrument.id = :instrumentId
+            order by watchlist.name asc
+            """)
+    List<WatchlistItem> findMemberships(
+            @Param("userId") UUID userId,
+            @Param("instrumentId") UUID instrumentId);
+
     @Query("select max(item.sortOrder) from WatchlistItem item where item.watchlist.id = :watchlistId")
     Integer findMaxSortOrder(@Param("watchlistId") UUID watchlistId);
 

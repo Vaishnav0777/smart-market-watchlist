@@ -25,5 +25,11 @@ public interface MarketDataProvider {
 
     List<Quote> getQuotes(List<String> symbols);
 
+    /**
+     * Every quote this provider can currently identify, in a stable order.
+     * This is a read of the provider catalog, not a persisted observation.
+     */
+    List<Quote> listQuotes();
+
     List<HistoricalBar> getHistoricalBars(String symbol, LocalDate from, LocalDate to);
 }

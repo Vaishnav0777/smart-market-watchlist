@@ -1,3 +1,4 @@
+import { AuthProvider } from "@/components/auth-provider";
 import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
 import "./globals.css";
@@ -14,7 +15,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "Smart Market Watchlist",
-  description: "Intelligent market monitoring and portfolio insights.",
+  description: "Watch instruments and see what observably changed since you last checked.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

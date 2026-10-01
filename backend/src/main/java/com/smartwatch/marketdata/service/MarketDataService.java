@@ -37,6 +37,10 @@ public class MarketDataService {
         return marketDataProvider.getQuotes(symbols);
     }
 
+    public List<Quote> listQuotes() {
+        return marketDataProvider.listQuotes();
+    }
+
     public List<HistoricalBar> getHistoricalBars(String symbol, LocalDate from, LocalDate to) {
         return marketDataProvider.getHistoricalBars(symbol, from, to);
     }

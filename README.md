@@ -1,14 +1,8 @@
 # Smart Market Watchlist
 
-Smart Market Watchlist is an Indian-market market intelligence application. It is a portfolio project for building a production-style system in small, verifiable steps.
+Smart Market Watchlist is an Indian-market watchlist. A person can keep the instruments they follow, come back later, and see what observably changed since they last checked.
 
 It is not a stock-prediction system. It does not provide live prices, trading signals, or investment advice.
-
-## The problem it solves
-
-People who follow a list of instruments need somewhere to keep that list, look up market information, come back later and see what meaningfully changed, and understand why something was flagged. They also need a place to review their own portfolio and ask questions about that data.
-
-This repository is the foundation for that product. Watchlists, change detection, portfolio analytics, and the assistant are not built yet.
 
 ## Current architecture
 
@@ -18,18 +12,13 @@ The system is a modular monolith: one Next.js frontend and one Spring Boot backe
 frontend/
 backend/
   com.smartwatch
-    common         auditing, health endpoint
-    marketdata
-      entity       Instrument
-      model        Quote and historical bars
-      provider     MarketDataProvider
-      repository
-      service
-      controller   reserved for later HTTP adapters
-    user           User identity, no authentication
-    watchlist      Watchlist and WatchlistItem
-    portfolio      Portfolio and Position
-infrastructure/    reserved for later deployment configuration
+    common         auditing, errors, health
+    marketdata     instruments, quotes, MarketDataProvider, observations
+    user           registration, login, JWT access tokens, refresh sessions
+    watchlist      watchlists, items, check cursor, change API
+    change         meaningful-change detection
+    portfolio      stored portfolios and positions, read API
+infrastructure/    Docker Compose for PostgreSQL and Redis
 docs/
 ```
 
@@ -42,9 +31,9 @@ MarketDataProvider
     +-- LicensedMarketDataProvider      future, not implemented
 ```
 
-`MarketDataService` depends on the interface. The rest of the application will call the service. A licensed provider can replace the mock later without changing the service, the other domain packages, or the frontend.
+`MarketDataService` depends on the interface. A licensed provider can replace the mock later without changing the detector or the frontend. PostgreSQL stores users, instruments, watchlists, observations, checks, portfolios, and positions. Flyway creates the schema and Hibernate validates it. Redis is defined for local development and the backend does not connect to it yet. See [docs/architecture.md](docs/architecture.md).
 
-PostgreSQL stores users, instruments, watchlists, and portfolios. Flyway creates the schema and Hibernate validates it. Redis is defined for local development and the backend does not connect to it yet. See [docs/architecture.md](docs/architecture.md).
+The frontend calls the backend REST API. It does not keep a copy of the instrument catalog and it does not run a second change detector. Change text and severity come from the backend.
 
 ## Technology stack
 
@@ -52,53 +41,44 @@ PostgreSQL stores users, instruments, watchlists, and portfolios. Flyway creates
 | --- | --- |
 | Frontend | Next.js 16, App Router, TypeScript, Tailwind CSS, ESLint |
 | Backend | Java 21, Spring Boot 4.1.1, Maven |
-| API | REST |
+| API | REST, JWT access tokens, rotating refresh tokens |
 | Database | PostgreSQL 17, Flyway migrations, Spring Data JPA |
 | Cache | Redis 8, local service only |
 | Local services | Docker Compose |
-
-Spring Boot dependencies: Spring Web, Spring Validation, Spring Data JPA, Flyway, the PostgreSQL driver, and Spring Boot Actuator.
-
-Planned later, and not present in this repository: authentication, Kafka, AI, AWS, Terraform, and GitHub Actions.
 
 ## Synthetic-data policy
 
 Development uses only synthetic market data.
 
-`MockMarketDataProvider` holds a small frozen catalog for RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, SBIN, ITC, BHARTIARTL, LT, and MARUTI. The numbers are invented fixtures. They share one fixed sample timestamp, `2024-06-03T15:30:00+05:30`. Every quote and historical bar is marked `synthetic: true`.
+`MockMarketDataProvider` holds a small frozen catalog for RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, SBIN, ITC, BHARTIARTL, LT, and MARUTI. The numbers are invented fixtures. They share one fixed sample timestamp, `2024-06-03T15:30:00+05:30`. Every quote is marked `synthetic: true`.
 
 These values must never be presented as real market data. They are not current or historical NSE or BSE prices.
 
 The project does not scrape Groww, Zerodha, NSE, or BSE. It does not call unofficial or undocumented market APIs, and it does not ship a copied market dataset.
 
-## Why real market-data integration is deferred
+A real Indian market-data feed needs a provider the project is allowed to use. Until that provider is chosen, the only implementation is the mock.
 
-A real Indian market-data feed needs a provider the project is allowed to use. That licensing decision is separate from the application structure. Connecting a provider now would either depend on an unverified source or lock the rest of the code to one vendor.
-
-The provider interface is the seam for that later work. Until a licensed provider is chosen, the only implementation is the mock.
-
-## Current project status
+## Current functionality
 
 Implemented:
 
-- Next.js landing page
-- Spring Boot API with `GET /api/v1/health`
-- Market-data port, quote models, and synthetic provider
-- Persistent users, instruments, watchlists, watchlist items, portfolios, and positions
-- Registration, login, JWT access tokens, and rotating refresh sessions
-- Authenticated watchlist API with per-user ownership
+- Registration, login, logout, JWT access tokens, and rotating refresh sessions
+- Authenticated watchlists: create, rename, delete, add, remove, and reorder items
+- Synthetic quotes through `MockMarketDataProvider`
+- Instrument search that resolves provider listings to persisted identities
 - Market observations and meaningful-change detection since an explicit check
-- Flyway schema migrations and Spring Data repositories
+- Read-only portfolio and position API for holdings that already exist
+- Next.js screens for sign-in, dashboard, watchlists, search, instrument detail, portfolio, and account
+- Flyway schema migrations and integration tests
 - Docker Compose services for PostgreSQL and Redis
-- Maven Wrapper
 
 Not implemented yet:
 
-- Portfolio HTTP API
+- A licensed or real-time market-data provider
+- Creating or editing portfolios from the UI
 - Redis client usage
-- Market or portfolio analytics
-- Real-time updates
-- AI assistant
+- Broker integration
+- AI assistant or price prediction
 - Kafka
 - AWS, Terraform, and CI/CD
 
@@ -110,20 +90,42 @@ Not implemented yet:
 
 The backend builds with the Maven Wrapper (`./mvnw`). A global Maven install is not required.
 
+## Environment variables
+
+Copy the example file and edit the local placeholders. `.env` is gitignored. Do not commit it.
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` | Docker Compose | Local PostgreSQL |
+| `REDIS_PASSWORD`, `REDIS_PORT` | Docker Compose | Local Redis, unused by the app |
+| `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Backend | JDBC connection. Keep the password equal to `POSTGRES_PASSWORD` |
+| `JWT_SECRET` | Backend | HMAC key for access tokens. At least 32 bytes. No default |
+| `JWT_ACCESS_TOKEN_TTL`, `JWT_REFRESH_TOKEN_TTL` | Backend | Optional token lifetimes |
+| `SERVER_PORT` | Backend | API port, default `8080` |
+| `CORS_ALLOWED_ORIGINS` | Backend | Browser origin allowed to call the API directly |
+| `NEXT_PUBLIC_API_BASE_URL` | Frontend | Optional absolute API origin. Leave empty to use the Next.js proxy |
+| `API_PROXY_TARGET` | Frontend server | Proxy destination for `/api`, default `http://localhost:8080` |
+
+`NEXT_PUBLIC_*` is visible in the browser. Do not put `JWT_SECRET`, database passwords, or tokens there.
+
+Spring Boot does not read `.env` on its own. Export it before starting the backend:
+
+```bash
+set -a
+source .env
+set +a
+```
+
 ## Start PostgreSQL and Redis
 
 From the repository root:
 
 ```bash
-cp .env.example .env
 docker compose up -d
-```
-
-`.env` is gitignored. The example file contains local placeholders only. Change `POSTGRES_PASSWORD` and `REDIS_PASSWORD` before use, and keep `DATABASE_PASSWORD` equal to `POSTGRES_PASSWORD`.
-
-Check the services:
-
-```bash
 docker compose ps
 ```
 
@@ -133,13 +135,7 @@ Stop them:
 docker compose down
 ```
 
-The API requires PostgreSQL and `JWT_SECRET`. Redis is not used by the application yet. Export the variables before starting the backend. Spring Boot does not read `.env` on its own:
-
-```bash
-set -a
-source .env
-set +a
-```
+The API requires PostgreSQL and `JWT_SECRET`. Redis is not used by the application yet.
 
 ## Start the backend
 
@@ -149,8 +145,6 @@ cd backend
 ```
 
 The API listens on port 8080 unless `SERVER_PORT` is set.
-
-Health check:
 
 ```bash
 curl http://localhost:8080/api/v1/health
@@ -162,17 +156,6 @@ Expected response:
 {"status":"UP"}
 ```
 
-Run the tests:
-
-```bash
-cd backend
-./mvnw test
-```
-
-Integration tests start PostgreSQL with Testcontainers, using the same `postgres:17-alpine` image as Docker Compose. Docker must be running. The tests check unique constraints and decimal persistence against PostgreSQL.
-
-Database passwords and future secrets come from the environment. Do not hardcode them. See `.env.example` and `backend/.env.example`.
-
 ## Start the frontend
 
 ```bash
@@ -181,4 +164,19 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The page is a landing screen for this foundation. The product dashboard is not built yet.
+Open [http://localhost:3000](http://localhost:3000). Sign in, then use the dashboard. With `NEXT_PUBLIC_API_BASE_URL` empty, the browser calls `/api` on the Next.js server, which proxies to `API_PROXY_TARGET`.
+
+## Tests
+
+Backend, from `backend/` (Docker must be running for Testcontainers):
+
+```bash
+./mvnw clean verify
+```
+
+Frontend, from `frontend/`:
+
+```bash
+npm run lint
+npm run build
+```

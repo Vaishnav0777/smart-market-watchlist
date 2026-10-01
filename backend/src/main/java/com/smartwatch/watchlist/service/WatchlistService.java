@@ -7,6 +7,7 @@ import com.smartwatch.marketdata.repository.InstrumentRepository;
 import com.smartwatch.marketdata.service.MarketDataService;
 import com.smartwatch.user.entity.User;
 import com.smartwatch.user.repository.UserRepository;
+import com.smartwatch.watchlist.dto.InstrumentMembershipResponse;
 import com.smartwatch.watchlist.dto.QuoteObservationResponse;
 import com.smartwatch.watchlist.dto.WatchlistDetailItemResponse;
 import com.smartwatch.watchlist.dto.WatchlistDetailResponse;
@@ -104,6 +105,19 @@ public class WatchlistService {
      * cursor. A later change summary needs that cursor to stay put until the
      * user explicitly marks the list as checked.
      */
+    @Transactional(readOnly = true)
+    public List<InstrumentMembershipResponse> memberships(UUID userId, UUID instrumentId) {
+        if (!instrumentRepository.existsById(instrumentId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, INSTRUMENT_NOT_FOUND);
+        }
+        return itemRepository.findMemberships(userId, instrumentId).stream()
+                .map(item -> new InstrumentMembershipResponse(
+                        item.getWatchlist().getId(),
+                        item.getWatchlist().getName(),
+                        item.getId()))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public WatchlistDetailResponse get(UUID userId, UUID watchlistId) {
         Watchlist watchlist = requireOwned(userId, watchlistId);

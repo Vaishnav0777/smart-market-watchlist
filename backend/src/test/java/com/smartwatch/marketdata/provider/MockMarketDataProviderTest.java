@@ -32,6 +32,8 @@ class MockMarketDataProviderTest {
         assertThat(quote.currency()).isEqualTo(MockMarketDataProvider.CURRENCY);
         assertThat(quote.sessionDate()).isEqualTo(MockMarketDataProvider.SAMPLE_SESSION_DATE);
         assertThat(provider.source()).isEqualTo(MockMarketDataProvider.SOURCE);
+        assertThat(provider.listQuotes()).hasSize(10);
+        assertThat(provider.listQuotes().get(0).symbol()).isEqualTo("RELIANCE");
         assertThat(MockMarketDataProvider.SYNTHETIC_DATA_NOTICE).contains("SYNTHETIC");
     }
 
