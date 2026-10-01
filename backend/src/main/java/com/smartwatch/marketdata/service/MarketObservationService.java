@@ -62,8 +62,10 @@ public class MarketObservationService {
             }
             MarketObservation observation = observationRepository.save(new MarketObservation(
                     instrument,
-                    marketDataService.source(),
-                    quote.timestamp(),
+                    quote.source(),
+                    quote.observedAt(),
+                    quote.marketTimestamp(),
+                    quote.quality(),
                     quote.price(),
                     quote.previousClose(),
                     quote.open(),
@@ -93,7 +95,10 @@ public class MarketObservationService {
     private static boolean canRecord(Quote quote) {
         return quote != null
                 && quote.price() != null
-                && quote.timestamp() != null
+                && quote.marketTimestamp() != null
+                && quote.observedAt() != null
+                && quote.source() != null
+                && quote.quality() != null
                 && quote.currency() != null
                 && !quote.currency().isBlank();
     }

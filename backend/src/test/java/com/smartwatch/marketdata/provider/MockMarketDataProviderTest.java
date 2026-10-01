@@ -1,6 +1,8 @@
 package com.smartwatch.marketdata.provider;
 
 import com.smartwatch.marketdata.model.HistoricalBar;
+import com.smartwatch.marketdata.model.MarketDataQuality;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.marketdata.model.Quote;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +30,11 @@ class MockMarketDataProviderTest {
         assertThat(quote.sector()).isEqualTo("Energy");
         assertThat(quote.price()).isEqualByComparingTo("2500.00");
         assertThat(quote.volume()).isEqualTo(3_200_000L);
-        assertThat(quote.timestamp()).isEqualTo(MockMarketDataProvider.SAMPLE_TIMESTAMP);
+        assertThat(quote.marketTimestamp()).isEqualTo(MockMarketDataProvider.SAMPLE_TIMESTAMP);
+        assertThat(quote.timestamp()).isEqualTo(quote.marketTimestamp());
+        assertThat(quote.observedAt()).isNull();
+        assertThat(quote.source()).isEqualTo(MarketDataSource.MOCK);
+        assertThat(quote.quality()).isEqualTo(MarketDataQuality.END_OF_DAY);
         assertThat(quote.currency()).isEqualTo(MockMarketDataProvider.CURRENCY);
         assertThat(quote.sessionDate()).isEqualTo(MockMarketDataProvider.SAMPLE_SESSION_DATE);
         assertThat(provider.source()).isEqualTo(MockMarketDataProvider.SOURCE);
@@ -138,6 +144,9 @@ class MockMarketDataProviderTest {
                 new BigDecimal(price),
                 volume,
                 MockMarketDataProvider.SAMPLE_TIMESTAMP,
+                null,
+                MarketDataSource.MOCK,
+                MarketDataQuality.END_OF_DAY,
                 MockMarketDataProvider.CURRENCY,
                 MockMarketDataProvider.SAMPLE_SESSION_DATE,
                 true);

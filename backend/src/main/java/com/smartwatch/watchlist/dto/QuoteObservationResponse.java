@@ -1,5 +1,7 @@
 package com.smartwatch.watchlist.dto;
 
+import com.smartwatch.marketdata.model.MarketDataQuality;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.marketdata.model.Quote;
 
 import java.math.BigDecimal;
@@ -16,6 +18,10 @@ public record QuoteObservationResponse(
         String exchange,
         BigDecimal price,
         BigDecimal previousClose,
+        Instant marketTimestamp,
+        Instant observedAt,
+        MarketDataSource source,
+        MarketDataQuality quality,
         Instant timestamp,
         boolean synthetic) {
 
@@ -25,7 +31,11 @@ public record QuoteObservationResponse(
                 quote.exchange(),
                 quote.price(),
                 quote.previousClose(),
-                quote.timestamp(),
+                quote.marketTimestamp(),
+                quote.observedAt(),
+                quote.source(),
+                quote.quality(),
+                quote.marketTimestamp(),
                 quote.synthetic());
     }
 }

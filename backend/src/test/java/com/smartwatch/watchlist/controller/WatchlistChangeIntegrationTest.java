@@ -5,6 +5,8 @@ import com.smartwatch.marketdata.entity.Instrument;
 import com.smartwatch.marketdata.entity.InstrumentType;
 import com.smartwatch.marketdata.entity.MarketObservation;
 import com.smartwatch.marketdata.model.Quote;
+import com.smartwatch.marketdata.model.MarketDataQuality;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.marketdata.provider.MockMarketDataProvider;
 import com.smartwatch.marketdata.repository.InstrumentRepository;
 import com.smartwatch.marketdata.repository.MarketObservationRepository;
@@ -286,6 +288,56 @@ class WatchlistChangeIntegrationTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void storesTheProviderTimeSeparatelyFromTheServerObservation() throws Exception {
+        String ada = token("ada@example.com", "Ada");
+        String watchlistId = createWatchlist(ada, "Long Term");
+        Instrument reliance = instrument("RELIANCE", "Reliance Industries");
+        addItem(ada, watchlistId, reliance.getId());
+
+        mockMvc.perform(post("/api/v1/watchlists/" + watchlistId + "/checks").header("Authorization", bearer(ada)))
+                .andExpect(status().isCreated());
+
+        MarketObservation saved = observationRepository.findAll().getFirst();
+        assertThat(saved.getSource()).isEqualTo(MarketDataSource.MOCK);
+        assertThat(saved.getQuality()).isEqualTo(MarketDataQuality.END_OF_DAY);
+        assertThat(saved.getMarketTimestamp()).isEqualTo(MockMarketDataProvider.SAMPLE_TIMESTAMP);
+        assertThat(saved.getObservedAt()).isNotEqualTo(saved.getMarketTimestamp());
+        assertThat(saved.getPrice()).isEqualByComparingTo("2500.00");
+        assertThat(saved.getVolume()).isEqualTo(3_200_000L);
+    }
+
+    @Test
+    void reloadsRealtimeDelayedAndStaleObservations() {
+        Instrument reliance = instrument("RELIANCE", "Reliance Industries");
+        Instant marketTime = Instant.parse("2024-06-03T10:00:00Z");
+        Instant serverTime = Instant.parse("2026-10-01T16:30:00Z");
+
+        for (MarketDataQuality quality : new MarketDataQuality[] {
+                MarketDataQuality.REAL_TIME, MarketDataQuality.DELAYED, MarketDataQuality.STALE}) {
+            MarketObservation saved = observationRepository.saveAndFlush(new MarketObservation(
+                    reliance,
+                    MarketDataSource.UPSTOX,
+                    serverTime,
+                    marketTime,
+                    quality,
+                    new BigDecimal("2500.00"),
+                    new BigDecimal("2480.00"),
+                    new BigDecimal("2490.00"),
+                    new BigDecimal("2510.00"),
+                    new BigDecimal("2475.00"),
+                    3_200_000L,
+                    "INR",
+                    MockMarketDataProvider.SAMPLE_SESSION_DATE));
+            MarketObservation loaded = observationRepository.findById(saved.getId()).orElseThrow();
+            assertThat(loaded.getSource()).isEqualTo(MarketDataSource.UPSTOX);
+            assertThat(loaded.getQuality()).isEqualTo(quality);
+            assertThat(loaded.getMarketTimestamp()).isEqualTo(marketTime);
+            assertThat(loaded.getObservedAt()).isEqualTo(serverTime);
+            assertThat(loaded.getObservedAt()).isNotEqualTo(loaded.getMarketTimestamp());
+        }
+    }
+
+    @Test
     void deletesChecksWithTheWatchlist() throws Exception {
         String ada = token("ada@example.com", "Ada");
         String watchlistId = createWatchlist(ada, "Long Term");
@@ -307,8 +359,10 @@ class WatchlistChangeIntegrationTest extends PostgresIntegrationTest {
             long volume) {
         return observationRepository.saveAndFlush(new MarketObservation(
                 instrument,
-                MockMarketDataProvider.SOURCE,
+                MarketDataSource.MOCK,
                 MockMarketDataProvider.SAMPLE_TIMESTAMP,
+                MockMarketDataProvider.SAMPLE_TIMESTAMP,
+                MarketDataQuality.END_OF_DAY,
                 new BigDecimal(price),
                 new BigDecimal(price),
                 new BigDecimal(price),
@@ -322,8 +376,10 @@ class WatchlistChangeIntegrationTest extends PostgresIntegrationTest {
     private MarketObservation observationFromQuote(Instrument instrument, Quote quote) {
         return observationRepository.saveAndFlush(new MarketObservation(
                 instrument,
-                MockMarketDataProvider.SOURCE,
-                quote.timestamp(),
+                quote.source(),
+                quote.observedAt(),
+                quote.marketTimestamp(),
+                quote.quality(),
                 quote.price(),
                 quote.previousClose(),
                 quote.open(),

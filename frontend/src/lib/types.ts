@@ -28,6 +28,10 @@ export type Instrument = {
   instrumentType: string;
 };
 
+export type MarketDataSource = "MOCK" | "UPSTOX" | "OTHER";
+
+export type MarketDataQuality = "REAL_TIME" | "DELAYED" | "END_OF_DAY" | "STALE" | "UNKNOWN";
+
 export type MarketQuote = {
   symbol: string;
   companyName: string;
@@ -39,6 +43,10 @@ export type MarketQuote = {
   high: number | null;
   low: number | null;
   volume: number;
+  marketTimestamp: string;
+  observedAt: string | null;
+  source: MarketDataSource;
+  quality: MarketDataQuality;
   timestamp: string;
   currency: string;
   sessionDate: string | null;
@@ -50,6 +58,10 @@ export type QuoteObservation = {
   exchange: string;
   price: number;
   previousClose: number | null;
+  marketTimestamp: string;
+  observedAt: string | null;
+  source: MarketDataSource;
+  quality: MarketDataQuality;
   timestamp: string;
   synthetic: boolean;
 };

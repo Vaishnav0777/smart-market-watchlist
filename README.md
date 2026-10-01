@@ -56,7 +56,9 @@ These values must never be presented as real market data. They are not current o
 
 The project does not scrape Groww, Zerodha, NSE, or BSE. It does not call unofficial or undocumented market APIs, and it does not ship a copied market dataset.
 
-A real Indian market-data feed needs a provider the project is allowed to use. Until that provider is chosen, the only implementation is the mock. A later provider implements the same `MarketDataProvider` interface. Change detection compares stored observations with the quotes that interface returns, so it does not depend on the mock catalog.
+A real Indian market-data feed needs a provider the project is allowed to use. Until that provider is chosen, the only implementation is the mock, and it stays the default for tests. A later provider implements the same `MarketDataProvider` interface. `UPSTOX` is a reserved source name. This project does not call Upstox, and it does not read an Upstox API key.
+
+Each quote has a last traded price, previous close, open, high, low, and cumulative volume. `marketTimestamp` is the provider's quote time. `observedAt` is when this backend received the quote. Those times are stored separately. `quality` says whether the provider marked the quote real-time, delayed, end-of-day, stale, or unknown. The mock catalog is end-of-day sample data, source `MOCK`, and `synthetic: true`. Change detection compares stored observations with the quotes that interface returns, so it does not depend on the mock catalog.
 
 A check is a row on `watchlist_checks`, saved by `POST /api/v1/watchlists/{id}/checks` for the signed-in owner. It records the quotes and membership at that moment. `GET /api/v1/watchlists/{id}/changes` reads the latest check and does not move it. With no check, the response is a first check and an empty change list. After a check, a move is reported only when it passes `app.changes`: 2% price, 2x volume, 1% gap, or 2% from the session open. The same frozen quote on the next check is "no material change." The text describes what already happened. It does not predict a price or recommend a trade.
 

@@ -123,9 +123,11 @@ market_observations          watchlist_checks
               ChangeDetector
 ```
 
-`MarketDataService` is still the only read path onto `MarketDataProvider`. `MockMarketDataProvider` returns the frozen synthetic catalog and identifies itself as source `mock`. A later licensed provider implements the same interface, including `source()`, and the detector does not change.
+`MarketDataService` is still the only read path onto `MarketDataProvider`. `MockMarketDataProvider` returns the frozen synthetic catalog and identifies itself as `MOCK`. A later licensed provider implements the same interface. Upstox is named as a possible source and is not called. The detector does not change.
 
-An observation stores the instrument id, source, observed time, price, previous close, open, day high, day low, volume, currency, and session date. It does not copy the company name or the rest of the instrument identity. Rows are written by `POST /api/v1/watchlists/{id}/checks`. Ordinary quote reads are not stored.
+A quote carries the last traded price, previous close, open, high, low, and cumulative volume. `marketTimestamp` is when the provider says the quote was updated. `observedAt` is when this backend received it. The service stamps `observedAt` and does not copy it onto `marketTimestamp`. `quality` is `REAL_TIME`, `DELAYED`, `END_OF_DAY`, `STALE`, or `UNKNOWN`. The mock catalog is `END_OF_DAY` because it is a closed sample session. `source` is `MOCK`, `UPSTOX`, or `OTHER`.
+
+An observation stores the instrument id, source, both timestamps, quality, price, previous close, open, day high, day low, volume, currency, and session date. It does not copy the company name. Rows are written by `POST /api/v1/watchlists/{id}/checks`. Ordinary quote reads are not stored. Change detection still compares prices and volumes. It does not treat quality as a prediction.
 
 `ChangeDetector` compares the latest quote with the observation captured at a cursor. Thresholds live in `app.changes` (`price-move-percent`, `volume-spike-multiple`, `gap-percent`, `intraday-move-percent`, `high-severity-multiple`). A rule that is missing a reference price, volume, or session boundary does not emit a change and does not treat the missing number as zero.
 

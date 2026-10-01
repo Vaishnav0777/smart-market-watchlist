@@ -1,6 +1,9 @@
 package com.smartwatch;
 
+import com.smartwatch.marketdata.model.MarketDataQuality;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.marketdata.model.Quote;
+import com.smartwatch.marketdata.provider.MockMarketDataProvider;
 import com.smartwatch.marketdata.service.MarketDataService;
 import com.smartwatch.support.PostgresIntegrationTest;
 import org.flywaydb.core.Flyway;
@@ -43,6 +46,11 @@ class SmartWatchApplicationTests extends PostgresIntegrationTest {
         assertThat(quote.synthetic()).isTrue();
         assertThat(quote.symbol()).isEqualTo("TCS");
         assertThat(quote.companyName()).isEqualTo("Tata Consultancy Services");
+        assertThat(quote.source()).isEqualTo(MarketDataSource.MOCK);
+        assertThat(quote.quality()).isEqualTo(MarketDataQuality.END_OF_DAY);
+        assertThat(quote.marketTimestamp()).isEqualTo(MockMarketDataProvider.SAMPLE_TIMESTAMP);
+        assertThat(quote.observedAt()).isNotNull();
+        assertThat(quote.observedAt()).isNotEqualTo(quote.marketTimestamp());
     }
 
     @Test
@@ -50,8 +58,8 @@ class SmartWatchApplicationTests extends PostgresIntegrationTest {
         var current = flyway.info().current();
 
         assertThat(current).isNotNull();
-        assertThat(current.getVersion().getVersion()).isEqualTo("4");
+        assertThat(current.getVersion().getVersion()).isEqualTo("5");
         assertThat(current.getState()).isEqualTo(MigrationState.SUCCESS);
-        assertThat(flyway.info().applied()).hasSize(4);
+        assertThat(flyway.info().applied()).hasSize(5);
     }
 }

@@ -1,7 +1,11 @@
 package com.smartwatch.marketdata.entity;
 
+import com.smartwatch.marketdata.model.MarketDataQuality;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -41,11 +45,25 @@ public class MarketObservation {
     @JoinColumn(name = "instrument_id", nullable = false)
     private Instrument instrument;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "source", nullable = false, length = 64)
-    private String source;
+    private MarketDataSource source;
 
+    /**
+     * When this backend stored the quote. Not the provider's market time.
+     */
     @Column(name = "observed_at", nullable = false, updatable = false)
     private Instant observedAt;
+
+    /**
+     * When the provider says the quote was updated.
+     */
+    @Column(name = "market_timestamp", nullable = false, updatable = false)
+    private Instant marketTimestamp;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "quality", nullable = false, length = 32)
+    private MarketDataQuality quality;
 
     @Column(name = "price", nullable = false, precision = 19, scale = 4)
     private BigDecimal price;
@@ -76,8 +94,10 @@ public class MarketObservation {
 
     public MarketObservation(
             Instrument instrument,
-            String source,
+            MarketDataSource source,
             Instant observedAt,
+            Instant marketTimestamp,
+            MarketDataQuality quality,
             BigDecimal price,
             BigDecimal previousClose,
             BigDecimal openPrice,
@@ -89,6 +109,8 @@ public class MarketObservation {
         this.instrument = instrument;
         this.source = source;
         this.observedAt = observedAt;
+        this.marketTimestamp = marketTimestamp;
+        this.quality = quality;
         this.price = price;
         this.previousClose = previousClose;
         this.openPrice = openPrice;
@@ -107,12 +129,20 @@ public class MarketObservation {
         return instrument;
     }
 
-    public String getSource() {
+    public MarketDataSource getSource() {
         return source;
     }
 
     public Instant getObservedAt() {
         return observedAt;
+    }
+
+    public Instant getMarketTimestamp() {
+        return marketTimestamp;
+    }
+
+    public MarketDataQuality getQuality() {
+        return quality;
     }
 
     public BigDecimal getPrice() {

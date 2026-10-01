@@ -1,5 +1,7 @@
 package com.smartwatch.marketdata.dto;
 
+import com.smartwatch.marketdata.model.MarketDataQuality;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.marketdata.model.Quote;
 
 import java.math.BigDecimal;
@@ -21,6 +23,10 @@ public record MarketQuoteResponse(
         BigDecimal high,
         BigDecimal low,
         long volume,
+        Instant marketTimestamp,
+        Instant observedAt,
+        MarketDataSource source,
+        MarketDataQuality quality,
         Instant timestamp,
         String currency,
         LocalDate sessionDate,
@@ -38,7 +44,11 @@ public record MarketQuoteResponse(
                 quote.high(),
                 quote.low(),
                 quote.volume(),
-                quote.timestamp(),
+                quote.marketTimestamp(),
+                quote.observedAt(),
+                quote.source(),
+                quote.quality(),
+                quote.marketTimestamp(),
                 quote.currency(),
                 quote.sessionDate(),
                 quote.synthetic());

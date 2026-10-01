@@ -1,6 +1,7 @@
 package com.smartwatch.marketdata.provider;
 
 import com.smartwatch.marketdata.model.HistoricalBar;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.marketdata.model.Quote;
 
 import java.time.LocalDate;
@@ -19,7 +20,7 @@ public interface MarketDataProvider {
     /**
      * Stable id of this provider, stored on observations. Not a secret.
      */
-    String source();
+    MarketDataSource source();
 
     Optional<Quote> getQuote(String symbol);
 

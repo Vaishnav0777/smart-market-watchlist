@@ -1,6 +1,8 @@
 package com.smartwatch.marketdata.provider;
 
 import com.smartwatch.marketdata.model.HistoricalBar;
+import com.smartwatch.marketdata.model.MarketDataQuality;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.marketdata.model.Quote;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +35,12 @@ public class MockMarketDataProvider implements MarketDataProvider {
             "SYNTHETIC DEVELOPMENT DATA. These values are invented fixtures for local development. "
                     + "They are not current or historical NSE or BSE prices and must never be presented as real market data.";
 
-    public static final String SOURCE = "mock";
+    public static final MarketDataSource SOURCE = MarketDataSource.MOCK;
+
+    /**
+     * The frozen catalog is a closed sample session, not a live tick.
+     */
+    public static final MarketDataQuality SAMPLE_QUALITY = MarketDataQuality.END_OF_DAY;
 
     public static final String CURRENCY = "INR";
 
@@ -95,7 +102,7 @@ public class MockMarketDataProvider implements MarketDataProvider {
     }
 
     @Override
-    public String source() {
+    public MarketDataSource source() {
         return SOURCE;
     }
 
@@ -180,6 +187,9 @@ public class MockMarketDataProvider implements MarketDataProvider {
                 latest.low(),
                 latest.volume(),
                 SAMPLE_TIMESTAMP,
+                null,
+                SOURCE,
+                SAMPLE_QUALITY,
                 CURRENCY,
                 SAMPLE_SESSION_DATE,
                 true);
