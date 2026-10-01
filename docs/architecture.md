@@ -25,7 +25,7 @@ Persisted timestamps are `Instant` values, stored as `timestamptz` and written i
 
 Redis is defined in Docker Compose for later caching. The backend does not connect to Redis yet.
 
-Change detection, portfolio analytics, AI, Kafka, and cloud deployment are not implemented. The watchlist HTTP API is in place and does not store the observations a later change summary will compare.
+Portfolio analytics, AI, Kafka, and cloud deployment are not implemented. Change detection compares stored observations with the latest quote. It does not predict a future price.
 
 ## Core Domain Model
 
@@ -102,4 +102,36 @@ A request for another user's watchlist returns the same `404` as a missing id. T
 
 `sort_order` is display position, starting at zero. It is not a market rank. Quotes are read through `MarketDataService` when a list is loaded and are not written onto `watchlist_items`. A quote is attached only when its exchange and symbol match the persisted instrument, and `synthetic` stays on the observation.
 
-Reading a watchlist does not record that the user checked it. Membership already has `addedAt` (`created_at`). A later "since last check" feature can store a check cursor on the watchlist, or in its own table, and compare that cursor with membership changes and fresh observations. The read path must not move that cursor, or the explanation of what changed would disappear on every view.
+Reading a watchlist does not record that the user checked it. `GET /api/v1/watchlists/{id}` still does not write a quote or move a cursor.
+
+## Market observations and meaningful changes
+
+```
+MarketDataProvider  ->  Quote
+        |
+        |  only when the user checks
+        v
+market_observations          watchlist_checks
+        \                   /        |
+         \                 /         +-- watchlist_check_items
+          \               /                    (membership + observation)
+           v             v
+              ChangeDetector
+```
+
+`MarketDataService` is still the only read path onto `MarketDataProvider`. `MockMarketDataProvider` returns the frozen synthetic catalog and identifies itself as source `mock`. A later licensed provider implements the same interface, including `source()`, and the detector does not change.
+
+An observation stores the instrument id, source, observed time, price, previous close, open, day high, day low, volume, currency, and session date. It does not copy the company name or the rest of the instrument identity. Rows are written by `POST /api/v1/watchlists/{id}/checks`. Ordinary quote reads are not stored.
+
+`ChangeDetector` compares the latest quote with the observation captured at a cursor. Thresholds live in `app.changes` (`price-move-percent`, `volume-spike-multiple`, `gap-percent`, `intraday-move-percent`, `high-severity-multiple`). A rule that is missing a reference price, volume, or session boundary does not emit a change and does not treat the missing number as zero.
+
+The change types are observable facts: `PRICE_MOVE`, `VOLUME_SPIKE`, `NEW_DAY_HIGH`, `NEW_DAY_LOW`, `GAP_UP`, `GAP_DOWN`, `LARGE_INTRADAY_MOVE`, `WATCHLIST_ADDED`, and `WATCHLIST_REMOVED`. Explanations say what already happened, such as a percent move since the previous observation. They do not say that a price will rise or that a stock should be bought.
+
+Since-last-check lifecycle:
+
+1. `GET /api/v1/watchlists/{id}/changes` uses the latest check, or `?since=` a check id or an ISO-8601 timestamp. It does not create a check.
+2. The response lists structured changes and counts. Market changes and membership changes are separate types.
+3. `POST /api/v1/watchlists/{id}/checks` stores the current quotes and the current membership, then returns a new cursor.
+4. A later read uses that cursor, so the same move is not reported again until the market differs from the new observation.
+
+Membership added or removed is the difference between the current items and the items stored on the cursor. A timestamp cursor can see items added after that time. It cannot see removals, because a deleted membership is no longer a row unless a check snapshot still has it. Another user's watchlist returns the same not-found response as a missing id.

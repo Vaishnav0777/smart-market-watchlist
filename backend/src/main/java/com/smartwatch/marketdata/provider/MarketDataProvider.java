@@ -16,6 +16,11 @@ import java.util.Optional;
  */
 public interface MarketDataProvider {
 
+    /**
+     * Stable id of this provider, stored on observations. Not a secret.
+     */
+    String source();
+
     Optional<Quote> getQuote(String symbol);
 
     List<Quote> getQuotes(List<String> symbols);

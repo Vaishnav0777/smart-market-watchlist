@@ -20,6 +20,12 @@ app:
       secret: ${JWT_SECRET}
       access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
       refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:P7D}
+  changes:
+    price-move-percent: 2
+    volume-spike-multiple: 2
+    gap-percent: 1
+    intraday-move-percent: 2
+    high-severity-multiple: 2
 
 server:
   port: ${SERVER_PORT:8080}

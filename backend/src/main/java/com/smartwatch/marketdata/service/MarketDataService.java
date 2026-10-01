@@ -25,6 +25,10 @@ public class MarketDataService {
         this.marketDataProvider = marketDataProvider;
     }
 
+    public String source() {
+        return marketDataProvider.source();
+    }
+
     public Optional<Quote> getQuote(String symbol) {
         return marketDataProvider.getQuote(symbol);
     }

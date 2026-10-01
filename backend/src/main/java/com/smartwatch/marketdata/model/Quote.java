@@ -2,6 +2,7 @@ package com.smartwatch.marketdata.model;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * A price snapshot for one instrument.
@@ -21,5 +22,7 @@ public record Quote(
         BigDecimal low,
         long volume,
         Instant timestamp,
+        String currency,
+        LocalDate sessionDate,
         boolean synthetic) {
 }

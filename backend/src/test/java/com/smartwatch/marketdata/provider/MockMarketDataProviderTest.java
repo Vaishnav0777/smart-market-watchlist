@@ -4,6 +4,7 @@ import com.smartwatch.marketdata.model.HistoricalBar;
 import com.smartwatch.marketdata.model.Quote;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -28,6 +29,9 @@ class MockMarketDataProviderTest {
         assertThat(quote.price()).isEqualByComparingTo("2500.00");
         assertThat(quote.volume()).isEqualTo(3_200_000L);
         assertThat(quote.timestamp()).isEqualTo(MockMarketDataProvider.SAMPLE_TIMESTAMP);
+        assertThat(quote.currency()).isEqualTo(MockMarketDataProvider.CURRENCY);
+        assertThat(quote.sessionDate()).isEqualTo(MockMarketDataProvider.SAMPLE_SESSION_DATE);
+        assertThat(provider.source()).isEqualTo(MockMarketDataProvider.SOURCE);
         assertThat(MockMarketDataProvider.SYNTHETIC_DATA_NOTICE).contains("SYNTHETIC");
     }
 
@@ -96,5 +100,44 @@ class MockMarketDataProviderTest {
                 LocalDate.of(2024, 6, 3),
                 LocalDate.of(2024, 6, 1)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void replacementsAreDeterministicAndDoNotChangeTheCatalog() {
+        Quote rising = quote("RELIANCE", "2600.00", 9_000_000L);
+        Quote falling = quote("TCS", "3600.00", 1_500_000L);
+        Quote quiet = quote("INFY", "1800.25", 4_100_000L);
+
+        provider.replaceQuote(rising);
+        provider.replaceQuote(falling);
+        provider.replaceQuote(quiet);
+
+        assertThat(provider.getQuote("RELIANCE").orElseThrow().price()).isEqualByComparingTo("2600.00");
+        assertThat(provider.getQuote("TCS").orElseThrow().price()).isEqualByComparingTo("3600.00");
+        assertThat(provider.getQuote("INFY").orElseThrow().volume()).isEqualTo(4_100_000L);
+        assertThat(provider.getQuote("RELIANCE")).isEqualTo(provider.getQuote("RELIANCE"));
+
+        provider.clearReplacements();
+
+        assertThat(provider.getQuote("RELIANCE").orElseThrow().price()).isEqualByComparingTo("2500.00");
+        assertThat(provider.getQuote("TCS").orElseThrow().price()).isEqualByComparingTo("4000.50");
+    }
+
+    private static Quote quote(String symbol, String price, long volume) {
+        return new Quote(
+                symbol,
+                symbol + " Co",
+                MockMarketDataProvider.LISTING_EXCHANGE,
+                "Test",
+                new BigDecimal(price),
+                new BigDecimal(price),
+                new BigDecimal(price),
+                new BigDecimal(price),
+                new BigDecimal(price),
+                volume,
+                MockMarketDataProvider.SAMPLE_TIMESTAMP,
+                MockMarketDataProvider.CURRENCY,
+                MockMarketDataProvider.SAMPLE_SESSION_DATE,
+                true);
     }
 }

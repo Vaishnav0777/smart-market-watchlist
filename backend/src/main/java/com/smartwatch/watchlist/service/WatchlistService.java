@@ -14,6 +14,8 @@ import com.smartwatch.watchlist.dto.WatchlistItemResponse;
 import com.smartwatch.watchlist.dto.WatchlistSummaryResponse;
 import com.smartwatch.watchlist.entity.Watchlist;
 import com.smartwatch.watchlist.entity.WatchlistItem;
+import com.smartwatch.watchlist.repository.WatchlistCheckItemRepository;
+import com.smartwatch.watchlist.repository.WatchlistCheckRepository;
 import com.smartwatch.watchlist.repository.WatchlistItemOrderUpdate;
 import com.smartwatch.watchlist.repository.WatchlistItemRepository;
 import com.smartwatch.watchlist.repository.WatchlistItemRepository.WatchlistItemCount;
@@ -41,6 +43,8 @@ public class WatchlistService {
 
     private final WatchlistRepository watchlistRepository;
     private final WatchlistItemRepository itemRepository;
+    private final WatchlistCheckRepository checkRepository;
+    private final WatchlistCheckItemRepository checkItemRepository;
     private final WatchlistItemOrderUpdate itemOrderUpdate;
     private final InstrumentRepository instrumentRepository;
     private final UserRepository userRepository;
@@ -49,12 +53,16 @@ public class WatchlistService {
     public WatchlistService(
             WatchlistRepository watchlistRepository,
             WatchlistItemRepository itemRepository,
+            WatchlistCheckRepository checkRepository,
+            WatchlistCheckItemRepository checkItemRepository,
             WatchlistItemOrderUpdate itemOrderUpdate,
             InstrumentRepository instrumentRepository,
             UserRepository userRepository,
             MarketDataService marketDataService) {
         this.watchlistRepository = watchlistRepository;
         this.itemRepository = itemRepository;
+        this.checkRepository = checkRepository;
+        this.checkItemRepository = checkItemRepository;
         this.itemOrderUpdate = itemOrderUpdate;
         this.instrumentRepository = instrumentRepository;
         this.userRepository = userRepository;
@@ -124,6 +132,8 @@ public class WatchlistService {
     public void delete(UUID userId, UUID watchlistId) {
         Watchlist watchlist = requireOwned(userId, watchlistId);
         UUID id = watchlist.getId();
+        checkItemRepository.deleteByWatchlistId(id);
+        checkRepository.deleteByWatchlistId(id);
         itemRepository.deleteByWatchlistId(id);
         watchlistRepository.deleteById(id);
     }

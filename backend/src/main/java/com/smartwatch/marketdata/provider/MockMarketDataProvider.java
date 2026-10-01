@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +32,10 @@ public class MockMarketDataProvider implements MarketDataProvider {
     public static final String SYNTHETIC_DATA_NOTICE =
             "SYNTHETIC DEVELOPMENT DATA. These values are invented fixtures for local development. "
                     + "They are not current or historical NSE or BSE prices and must never be presented as real market data.";
+
+    public static final String SOURCE = "mock";
+
+    public static final String CURRENCY = "INR";
 
     /**
      * Listing label stored on each synthetic instrument. It does not mean
@@ -68,6 +73,7 @@ public class MockMarketDataProvider implements MarketDataProvider {
 
     private final Map<String, Quote> quotesBySymbol;
     private final Map<String, List<HistoricalBar>> barsBySymbol;
+    private final Map<String, Quote> replacements = new HashMap<>();
 
     public MockMarketDataProvider() {
         if (CLOSE_FACTORS.length != SESSION_COUNT) {
@@ -89,8 +95,33 @@ public class MockMarketDataProvider implements MarketDataProvider {
     }
 
     @Override
+    public String source() {
+        return SOURCE;
+    }
+
+    /**
+     * Replaces one catalog quote on this instance. Tests use a dedicated
+     * instance so the shared application provider stays on the frozen catalog.
+     */
+    void replaceQuote(Quote quote) {
+        if (quote == null || quote.symbol() == null || quote.symbol().isBlank()) {
+            throw new IllegalArgumentException("quote symbol must not be blank");
+        }
+        replacements.put(normalize(quote.symbol()), quote);
+    }
+
+    void clearReplacements() {
+        replacements.clear();
+    }
+
+    @Override
     public Optional<Quote> getQuote(String symbol) {
-        return Optional.ofNullable(quotesBySymbol.get(normalize(symbol)));
+        String key = normalize(symbol);
+        Quote replacement = replacements.get(key);
+        if (replacement != null) {
+            return Optional.of(replacement);
+        }
+        return Optional.ofNullable(quotesBySymbol.get(key));
     }
 
     @Override
@@ -140,6 +171,8 @@ public class MockMarketDataProvider implements MarketDataProvider {
                 latest.low(),
                 latest.volume(),
                 SAMPLE_TIMESTAMP,
+                CURRENCY,
+                SAMPLE_SESSION_DATE,
                 true);
     }
 

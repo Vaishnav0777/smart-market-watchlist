@@ -87,6 +87,7 @@ Implemented:
 - Persistent users, instruments, watchlists, watchlist items, portfolios, and positions
 - Registration, login, JWT access tokens, and rotating refresh sessions
 - Authenticated watchlist API with per-user ownership
+- Market observations and meaningful-change detection since an explicit check
 - Flyway schema migrations and Spring Data repositories
 - Docker Compose services for PostgreSQL and Redis
 - Maven Wrapper
@@ -95,7 +96,6 @@ Not implemented yet:
 
 - Portfolio HTTP API
 - Redis client usage
-- Meaningful-change detection
 - Market or portfolio analytics
 - Real-time updates
 - AI assistant
