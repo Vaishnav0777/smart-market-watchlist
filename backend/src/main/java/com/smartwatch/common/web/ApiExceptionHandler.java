@@ -1,5 +1,6 @@
 package com.smartwatch.common.web;
 
+import com.smartwatch.marketdata.provider.upstox.MarketDataUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,6 +17,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> apiException(ApiException exception) {
         return response(exception.getStatus(), exception.getMessage(), null);
+    }
+
+    @ExceptionHandler(MarketDataUnavailableException.class)
+    public ResponseEntity<ApiError> marketDataUnavailable(MarketDataUnavailableException exception) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -12,8 +12,8 @@ import java.util.Optional;
  * Port for market data.
  *
  * <p>Application code depends on this interface. {@code MockMarketDataProvider}
- * is the only implementation today. A licensed provider can be added later
- * behind the same methods without changing callers.
+ * is the default. {@code UpstoxMarketDataProvider} is used only when Upstox
+ * is enabled and an access token is configured.
  */
 public interface MarketDataProvider {
 

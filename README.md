@@ -27,11 +27,11 @@ Market data enters through the `MarketDataProvider` interface:
 ```
 MarketDataProvider
     |
-    +-- MockMarketDataProvider          synthetic fixtures, implemented
-    +-- LicensedMarketDataProvider      future, not implemented
+    +-- MockMarketDataProvider          synthetic fixtures, default
+    +-- UpstoxMarketDataProvider        Upstox V3 REST quotes, optional
 ```
 
-`MarketDataService` depends on the interface. A licensed provider can replace the mock later without changing the detector or the frontend. PostgreSQL stores users, instruments, watchlists, observations, checks, portfolios, and positions. Flyway creates the schema and Hibernate validates it. Redis is defined for local development and the backend does not connect to it yet. See [docs/architecture.md](docs/architecture.md).
+`MarketDataService` depends on the interface. The mock stays the provider for local development and tests. Upstox is used only when it is explicitly enabled and an access token is present. PostgreSQL stores users, instruments, watchlists, observations, checks, portfolios, and positions. Flyway creates the schema and Hibernate validates it. Redis is defined for local development and the backend does not connect to it yet. See [docs/architecture.md](docs/architecture.md).
 
 The frontend calls the backend REST API. It does not keep a copy of the instrument catalog and it does not run a second change detector. Change text and severity come from the backend.
 
@@ -56,9 +56,11 @@ These values must never be presented as real market data. They are not current o
 
 The project does not scrape Groww, Zerodha, NSE, or BSE. It does not call unofficial or undocumented market APIs, and it does not ship a copied market dataset.
 
-A real Indian market-data feed needs a provider the project is allowed to use. Until that provider is chosen, the only implementation is the mock, and it stays the default for tests. A later provider implements the same `MarketDataProvider` interface. `UPSTOX` is a reserved source name. This project does not call Upstox, and it does not read an Upstox API key.
+The optional real feed is Upstox's current V3 full market-quote REST API, `GET /v3/market-quote/quotes`. It is off unless `UPSTOX_ENABLED=true` and `UPSTOX_ACCESS_TOKEN` is set in the environment. The token is not written into source, `.env.example`, logs, or the frontend. This repository does not grant exchange licensing or redistribution rights. Use an access token your own Upstox app is allowed to use, and do not commit it.
 
-Each quote has a last traded price, previous close, open, high, low, and cumulative volume. `marketTimestamp` is the provider's quote time. `observedAt` is when this backend received the quote. Those times are stored separately. `quality` says whether the provider marked the quote real-time, delayed, end-of-day, stale, or unknown. The mock catalog is end-of-day sample data, source `MOCK`, and `synthetic: true`. Change detection compares stored observations with the quotes that interface returns, so it does not depend on the mock catalog.
+Upstox instruments are addressed by an external key such as `NSE_EQ|INE002A01018`, stored on `instrument_provider_keys` for an instrument we already have. The internal symbol is unchanged. No Upstox key is seeded. A symbol with no stored key has no Upstox quote. WebSocket streaming is not implemented.
+
+Each quote has a last traded price, previous close, open, high, low, and cumulative volume. Three times stay separate. `marketTimestamp` is when the trade represented by the last price occurred. For Upstox that is `last_trade_time`. `observedAt` is when this backend accepted the provider response. The Upstox field `timestamp` is when Upstox generated the snapshot. It is not stored as either of those times. `quality` is `REAL_TIME`, `DELAYED`, `END_OF_DAY`, `STALE`, or `UNKNOWN`. A fresh Upstox snapshot is `REAL_TIME`, because V3 documents it as taken from the exchange at request time and does not mark it delayed. It is `STALE` only when that snapshot `timestamp` is older than `UPSTOX_STALE_AFTER` (default 15 minutes) before `observedAt`. An old last trade with a fresh snapshot stays `REAL_TIME`. The mock catalog is end-of-day sample data, source `MOCK`, and `synthetic: true`. Change detection compares stored observations with the quotes that interface returns, so it does not depend on the mock catalog.
 
 A check is a row on `watchlist_checks`, saved by `POST /api/v1/watchlists/{id}/checks` for the signed-in owner. It records the quotes and membership at that moment. `GET /api/v1/watchlists/{id}/changes` reads the latest check and does not move it. With no check, the response is a first check and an empty change list. After a check, a move is reported only when it passes `app.changes`: 2% price, 2x volume, 1% gap, or 2% from the session open. The same frozen quote on the next check is "no material change." The text describes what already happened. It does not predict a price or recommend a trade.
 
@@ -69,7 +71,8 @@ Implemented:
 - Registration, login, logout, short-lived JWT access tokens, and rotating refresh sessions
 - Refresh token in an HttpOnly `SameSite=Lax` cookie (`smw_refresh`). It is not returned in JSON and is not stored in `sessionStorage`
 - Authenticated watchlists: create, rename, delete, add, remove, and reorder items
-- Synthetic quotes through `MockMarketDataProvider`
+- Synthetic quotes through `MockMarketDataProvider`, which remains the default
+- Optional Upstox V3 REST quotes when enabled with an environment access token
 - Instrument search that resolves provider listings to persisted identities
 - Market observations and meaningful-change detection since an explicit check. The first check stores no invented history. A later check reports only moves past the configured thresholds, or says there is no material change.
 - Portfolio create, rename, delete, and position add, edit, and remove for the signed-in owner
@@ -79,7 +82,7 @@ Implemented:
 
 Not implemented yet:
 
-- A licensed or real-time market-data provider
+- Upstox WebSocket streaming, polling, and a seeded instrument-key catalog
 - Redis client usage
 - Broker integration
 - AI assistant or price prediction
@@ -112,12 +115,25 @@ cp .env.example .env
 | `SERVER_PORT` | Backend | API port, default `8080` |
 | `CORS_ALLOWED_ORIGINS` | Backend | Browser origin allowed to call the API directly |
 | `COOKIE_SECURE` | Backend | Set `true` when the site is served over HTTPS. Leave `false` for local HTTP |
+| `UPSTOX_ENABLED` | Backend | `false` by default. Set `true` to request Upstox V3 quotes instead of the mock |
+| `UPSTOX_BASE_URL` | Backend | Upstox API origin. Default `https://api.upstox.com` |
+| `UPSTOX_ACCESS_TOKEN` | Backend | Bearer token for your own Upstox app. Leave empty in examples. Never commit a real token |
+| `UPSTOX_STALE_AFTER` | Backend | Age of the Upstox snapshot `timestamp` before a quote is `STALE`. Default `PT15M`. This is not the age of the last trade |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend | Optional absolute API origin. Leave empty to use the Next.js proxy |
 | `API_PROXY_TARGET` | Frontend server | Proxy destination for `/api`, default `http://localhost:8080` |
 
 `NEXT_PUBLIC_*` is visible in the browser. Do not put `JWT_SECRET`, database passwords, or tokens there.
 
-Leave `NEXT_PUBLIC_API_BASE_URL` empty in local development. The browser then calls `/api` on the Next.js server, which proxies to the backend, so the refresh cookie stays on the same site. The access token lives only in memory and is replaced by `POST /api/v1/auth/refresh` after a reload. Market prices are still synthetic. The application does not predict prices and is not connected to a live market-data provider.
+Leave `NEXT_PUBLIC_API_BASE_URL` empty in local development. The browser then calls `/api` on the Next.js server, which proxies to the backend, so the refresh cookie stays on the same site. The access token lives only in memory and is replaced by `POST /api/v1/auth/refresh` after a reload. With `UPSTOX_ENABLED` left false, market prices stay synthetic. The application does not predict prices.
+
+To call Upstox locally, export a token only in your shell or gitignored `.env`. Do not put it in source control:
+
+```bash
+export UPSTOX_ENABLED=true
+export UPSTOX_ACCESS_TOKEN="the token from your Upstox app"
+```
+
+Insert one `instrument_provider_keys` row per instrument (`provider = UPSTOX`, `external_instrument_key` from the Upstox instrument master) before expecting a quote. If Upstox is enabled and the token is blank, the API fails to start rather than serving mock prices as if they were live.
 
 Spring Boot does not read `.env` on its own. Export it before starting the backend:
 

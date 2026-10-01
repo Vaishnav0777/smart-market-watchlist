@@ -13,11 +13,11 @@ backend (Spring Boot)
   portfolio       portfolios and positions
         |
 MarketDataProvider
-  MockMarketDataProvider          synthetic fixtures, implemented
-  LicensedMarketDataProvider      future, not implemented
+  MockMarketDataProvider          synthetic fixtures, default
+  UpstoxMarketDataProvider        Upstox V3 REST quotes, optional
 ```
 
-`MarketDataService` is the only market-data entry point for the rest of the application. It depends on the `MarketDataProvider` interface. The mock implementation is a Spring component today, so it is injected automatically. A later licensed provider can replace it without changing the service, the domain packages, or the frontend.
+`MarketDataService` is the only market-data entry point for the rest of the application. It depends on the `MarketDataProvider` interface. `UPSTOX_ENABLED=false` selects the mock, including tests. `UPSTOX_ENABLED=true` with a non-blank `UPSTOX_ACCESS_TOKEN` selects `UpstoxMarketDataProvider`. A blank token does not fall back to the mock. The detector and the frontend do not change.
 
 The Next.js application is the product UI. It calls the existing REST API through one client. The refresh token is an HttpOnly cookie and is not placed in JavaScript storage. The access token stays in memory. Neither is written into source or `NEXT_PUBLIC_*` variables. Reading a watchlist still does not move the check cursor. The dashboard shows the change response from `GET /api/v1/watchlists/{id}/changes` and records a check only when the user chooses `POST /api/v1/watchlists/{id}/checks`.
 
@@ -123,9 +123,11 @@ market_observations          watchlist_checks
               ChangeDetector
 ```
 
-`MarketDataService` is still the only read path onto `MarketDataProvider`. `MockMarketDataProvider` returns the frozen synthetic catalog and identifies itself as `MOCK`. A later licensed provider implements the same interface. Upstox is named as a possible source and is not called. The detector does not change.
+`MarketDataService` is still the only read path onto `MarketDataProvider`. `MockMarketDataProvider` returns the frozen synthetic catalog and identifies itself as `MOCK`. `UpstoxMarketDataProvider` calls `GET https://api.upstox.com/v3/market-quote/quotes` with the stored external instrument key. It does not open an Upstox WebSocket. The detector does not change. Enabling Upstox does not by itself mean this project has exchange redistribution rights.
 
-A quote carries the last traded price, previous close, open, high, low, and cumulative volume. `marketTimestamp` is when the provider says the quote was updated. `observedAt` is when this backend received it. The service stamps `observedAt` and does not copy it onto `marketTimestamp`. `quality` is `REAL_TIME`, `DELAYED`, `END_OF_DAY`, `STALE`, or `UNKNOWN`. The mock catalog is `END_OF_DAY` because it is a closed sample session. `source` is `MOCK`, `UPSTOX`, or `OTHER`.
+A quote carries the last traded price, previous close, open, high, low, and cumulative volume. `marketTimestamp` is when the trade represented by the last price occurred. For Upstox that is `last_trade_time` (epoch milliseconds). `observedAt` is the server clock after the response has been accepted. The Upstox field `timestamp` is when Upstox generated the snapshot. That snapshot time is not copied onto `marketTimestamp` or `observedAt`. The service stamps `observedAt` for providers that leave it empty. `quality` is `REAL_TIME`, `DELAYED`, `END_OF_DAY`, `STALE`, or `UNKNOWN`. The mock catalog is `END_OF_DAY`. A fresh Upstox snapshot is `REAL_TIME` because V3 documents it as taken from the exchange at request time and does not mark it delayed. It is `STALE` when the snapshot `timestamp` is older than `app.market-data.upstox.stale-after` (default 15 minutes) before `observedAt`. An old last trade does not by itself make the quote stale. `source` is `MOCK`, `UPSTOX`, or `OTHER`.
+
+Upstox keys live in `instrument_provider_keys` (`provider`, `external_instrument_key`) and point at an existing instrument. The table is not seeded. Day volume is the top-level `volume`. Previous close is `prev_close_price`, not `ohlc.close`.
 
 An observation stores the instrument id, source, both timestamps, quality, price, previous close, open, day high, day low, volume, currency, and session date. It does not copy the company name. Rows are written by `POST /api/v1/watchlists/{id}/checks`. Ordinary quote reads are not stored. Change detection still compares prices and volumes. It does not treat quality as a prediction.
 

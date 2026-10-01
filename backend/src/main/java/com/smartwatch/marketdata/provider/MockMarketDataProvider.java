@@ -4,8 +4,6 @@ import com.smartwatch.marketdata.model.HistoricalBar;
 import com.smartwatch.marketdata.model.MarketDataQuality;
 import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.marketdata.model.Quote;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -28,7 +26,6 @@ import java.util.Optional;
  * clock is frozen. Nothing here is a live or historical NSE or BSE price,
  * and these values must never be presented as real market data.
  */
-@Component
 public class MockMarketDataProvider implements MarketDataProvider {
 
     public static final String SYNTHETIC_DATA_NOTICE =

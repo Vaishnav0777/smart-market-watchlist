@@ -31,6 +31,14 @@ app:
     gap-percent: 1
     intraday-move-percent: 2
     high-severity-multiple: 2
+  market-data:
+    upstox:
+      enabled: ${UPSTOX_ENABLED:false}
+      base-url: ${UPSTOX_BASE_URL:https://api.upstox.com}
+      access-token: ${UPSTOX_ACCESS_TOKEN:}
+      stale-after: ${UPSTOX_STALE_AFTER:PT15M}
+      connect-timeout: ${UPSTOX_CONNECT_TIMEOUT:PT5S}
+      read-timeout: ${UPSTOX_READ_TIMEOUT:PT10S}
 
 server:
   port: ${SERVER_PORT:8080}

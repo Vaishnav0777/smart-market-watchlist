@@ -46,9 +46,14 @@ public class MarketDataService {
     }
 
     /**
-     * Stamps when this backend received the quote. The provider market time is left unchanged.
+     * Stamps when this backend received the quote. A provider that already set
+     * {@code observedAt} keeps that acceptance time. The provider market time
+     * is left unchanged.
      */
     private Quote receive(Quote quote) {
+        if (quote.observedAt() != null) {
+            return quote;
+        }
         return quote.observe(clock.instant());
     }
 
