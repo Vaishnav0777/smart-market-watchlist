@@ -141,6 +141,7 @@ export type WatchlistChanges = {
   watchlistId: string;
   cursor: string | null;
   baselineCheckedAt: string | null;
+  firstCheck: boolean;
   changes: DetectedChange[];
   summary: ChangeSummary;
 };

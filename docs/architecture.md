@@ -133,8 +133,8 @@ The change types are observable facts: `PRICE_MOVE`, `VOLUME_SPIKE`, `NEW_DAY_HI
 
 Since-last-check lifecycle:
 
-1. `GET /api/v1/watchlists/{id}/changes` uses the latest check, or `?since=` a check id or an ISO-8601 timestamp. It does not create a check.
-2. The response lists structured changes and counts. Market changes and membership changes are separate types.
+1. `GET /api/v1/watchlists/{id}/changes` uses the latest check, or `?since=` a check id or an ISO-8601 timestamp. It does not create a check. `firstCheck` is true when no checkpoint exists, and the change list stays empty. A later read with no move past the configured thresholds says there is no material change.
+2. The response lists structured changes and counts. Market changes and membership changes are separate types. A price move includes the current value, the reference value, the absolute change, and the percent change.
 3. `POST /api/v1/watchlists/{id}/checks` stores the current quotes and the current membership, then returns a new cursor.
 4. A later read uses that cursor, so the same move is not reported again until the market differs from the new observation.
 

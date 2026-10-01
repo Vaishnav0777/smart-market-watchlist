@@ -119,12 +119,14 @@ public class WatchlistChangeService {
         }
 
         List<DetectedChange> detected = changeDetector.detect(subjects, clock.instant());
+        boolean firstCheck = baseline == null;
         return new WatchlistChangesResponse(
                 watchlist.getId(),
                 baseline == null ? null : baseline.cursor(),
                 baseline == null ? null : baseline.checkedAt(),
+                firstCheck,
                 detected.stream().map(ChangeResponse::from).toList(),
-                summary(detected, baseline != null));
+                summary(detected, firstCheck));
     }
 
     /**
@@ -245,12 +247,12 @@ public class WatchlistChangeService {
                 observation.getSessionDate());
     }
 
-    private static ChangeSummaryResponse summary(List<DetectedChange> changes, boolean hasBaseline) {
+    private static ChangeSummaryResponse summary(List<DetectedChange> changes, boolean firstCheck) {
         List<String> highlights = new ArrayList<>(ChangeHighlights.from(changes));
         if (highlights.isEmpty()) {
-            highlights.add(hasBaseline
-                    ? "No meaningful change since the last check."
-                    : "No earlier check is recorded.");
+            highlights.add(firstCheck
+                    ? "You're seeing your first market check for this watchlist."
+                    : "No material changes since your last check.");
         }
         int instruments = (int) changes.stream().map(DetectedChange::instrumentId).distinct().count();
         return new ChangeSummaryResponse(

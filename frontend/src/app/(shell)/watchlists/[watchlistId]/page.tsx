@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeList } from "@/components/change-list";
+import { ChangeList, CheckStatus } from "@/components/change-list";
 import { ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
 import { acknowledgeCheck, getChanges } from "@/lib/api/changes";
 import { ApiError } from "@/lib/api/client";
@@ -157,13 +157,7 @@ export default function WatchlistDetailPage() {
       )}
 
       <section className="grid gap-3">
-        <h2 className="font-serif text-2xl">Since your last check</h2>
-        <div className="surface px-5 py-4 text-sm leading-6">
-          {changes.summary.highlights.map((line) => <p key={line}>{line}</p>)}
-          <p className="mt-2 text-xs text-muted">
-            {changes.baselineCheckedAt ? `Baseline ${formatTimestamp(changes.baselineCheckedAt)}` : "No earlier check is on file."}
-          </p>
-        </div>
+        <CheckStatus changes={changes} />
         <ChangeList changes={changes.changes} />
       </section>
     </div>

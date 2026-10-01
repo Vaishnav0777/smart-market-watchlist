@@ -1,6 +1,29 @@
 import { changeTypeLabel, formatMoney, formatPercent, formatTimestamp, severityLabel } from "@/lib/format";
-import type { DetectedChange } from "@/lib/types";
+import type { DetectedChange, WatchlistChanges } from "@/lib/types";
 import Link from "next/link";
+
+export function CheckStatus({ changes }: { changes: WatchlistChanges }) {
+  const title = changes.firstCheck
+    ? "First check"
+    : changes.changes.length === 0
+      ? "No material changes"
+      : "Since your last check";
+  return (
+    <div className="surface px-5 py-5">
+      <h2 className="font-serif text-2xl">{title}</h2>
+      <ul className="mt-3 grid gap-1 text-sm leading-6">
+        {changes.summary.highlights.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+      <p className="mt-3 text-xs text-muted">
+        {changes.firstCheck
+          ? "No previous check is stored. Mark this list as checked to save the current observations."
+          : `Last checked ${formatTimestamp(changes.baselineCheckedAt)}`}
+      </p>
+    </div>
+  );
+}
 
 export function ChangeList({ changes }: { changes: DetectedChange[] }) {
   if (changes.length === 0) {

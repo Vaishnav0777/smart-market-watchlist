@@ -78,9 +78,10 @@ class WatchlistChangeIntegrationTest extends PostgresIntegrationTest {
         mockMvc.perform(get("/api/v1/watchlists/" + watchlistId + "/changes").header("Authorization", bearer(ada)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cursor").value(nullValue()))
+                .andExpect(jsonPath("$.firstCheck").value(true))
                 .andExpect(jsonPath("$.changes").isEmpty())
                 .andExpect(jsonPath("$.summary.totalChanges").value(0))
-                .andExpect(jsonPath("$.summary.highlights[0]").value("No earlier check is recorded."));
+                .andExpect(jsonPath("$.summary.highlights[0]").value("You're seeing your first market check for this watchlist."));
 
         assertThat(observationRepository.count()).isEqualTo(observations);
         assertThat(checkRepository.count()).isEqualTo(checks);
@@ -107,8 +108,9 @@ class WatchlistChangeIntegrationTest extends PostgresIntegrationTest {
         mockMvc.perform(get("/api/v1/watchlists/" + watchlistId + "/changes").header("Authorization", bearer(ada)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cursor").value(cursor))
+                .andExpect(jsonPath("$.firstCheck").value(false))
                 .andExpect(jsonPath("$.changes").isEmpty())
-                .andExpect(jsonPath("$.summary.highlights[0]").value("No meaningful change since the last check."));
+                .andExpect(jsonPath("$.summary.highlights[0]").value("No material changes since your last check."));
 
         assertThat(observationRepository.count()).isEqualTo(observations);
         assertThat(checkRepository.count()).isEqualTo(checks);

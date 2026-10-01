@@ -1,12 +1,12 @@
 "use client";
 
-import { ChangeList } from "@/components/change-list";
+import { ChangeList, CheckStatus } from "@/components/change-list";
 import { ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
 import { acknowledgeCheck, getChanges } from "@/lib/api/changes";
 import { listPortfolios } from "@/lib/api/portfolios";
 import { listQuotes } from "@/lib/api/quotes";
 import { listWatchlists } from "@/lib/api/watchlists";
-import { formatMoney, formatPercent, formatTimestamp, previousCloseMove } from "@/lib/format";
+import { formatMoney, formatPercent, previousCloseMove } from "@/lib/format";
 import type { MarketQuote, Portfolio, WatchlistChanges, WatchlistSummary } from "@/lib/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -107,7 +107,7 @@ export default function DashboardPage() {
 
       <section className="grid gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-serif text-2xl">Since your last check</h2>
+          <h2 className="font-serif text-2xl">Watchlist check</h2>
           {data.watchlists.length > 1 ? (
             <label className="text-sm text-muted">
               Watchlist
@@ -133,19 +133,9 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid gap-4">
-            <div className="surface px-5 py-5">
-              <p className="text-sm text-muted">{selected.name}</p>
-              <ul className="mt-3 grid gap-1 text-sm leading-6">
-                {changes.summary.highlights.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-              <p className="mt-3 text-xs text-muted">
-                {changes.baselineCheckedAt
-                  ? `Baseline ${formatTimestamp(changes.baselineCheckedAt)}`
-                  : "No check has been recorded yet."}
-              </p>
-              {changes.cursor ? <p className="mt-1 text-xs text-muted">Cursor saved with this check.</p> : null}
+            <div>
+              <p className="mb-2 text-sm text-muted">{selected.name}</p>
+              <CheckStatus changes={changes} />
               <div className="mt-4 flex flex-wrap gap-2">
                 <button className="button-primary" type="button" onClick={markChecked} disabled={checking}>
                   {checking ? "Saving check" : "Mark as checked"}
@@ -153,11 +143,7 @@ export default function DashboardPage() {
                 <Link className="button-secondary" href={`/watchlists/${selected.id}`}>Open watchlist</Link>
               </div>
             </div>
-            {changes.changes.length === 0 ? (
-              <p className="text-sm text-muted">The backend did not report a meaningful change for this list.</p>
-            ) : (
-              <ChangeList changes={changes.changes} />
-            )}
+            {changes.changes.length === 0 ? null : <ChangeList changes={changes.changes} />}
           </div>
         )}
       </section>
