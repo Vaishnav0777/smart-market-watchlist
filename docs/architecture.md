@@ -25,7 +25,7 @@ Persisted timestamps are `Instant` values, stored as `timestamptz` and written i
 
 Redis is defined in Docker Compose for later caching. The backend does not connect to Redis yet.
 
-Change detection, portfolio analytics, AI, Kafka, and cloud deployment are outside this foundation.
+Change detection, portfolio analytics, AI, Kafka, and cloud deployment are not implemented. The watchlist HTTP API is in place and does not store the observations a later change summary will compare.
 
 ## Core Domain Model
 
@@ -51,7 +51,7 @@ These four types stay separate:
 | WatchlistItem | A user's interest in an instrument. It is not a holding. |
 | Position | A user's quantity and average buy price. The current price comes from market data. |
 
-The synthetic quote catalog in `MockMarketDataProvider` is not copied into PostgreSQL. Instrument rows are created by the application when a user needs them. Migrations do not insert demo users or prices.
+The synthetic quote catalog in `MockMarketDataProvider` is not copied into PostgreSQL. Instrument rows are identities only. The watchlist API accepts an instrument id that already exists and does not create an instrument from a symbol the client types. Migrations do not insert demo users or prices.
 
 ## Authentication
 
@@ -81,4 +81,25 @@ Passwords are hashed with Spring Security's `BCryptPasswordEncoder`. Login uses 
 
 `JWT_SECRET` comes from the environment and must be at least 32 bytes. Access and refresh lifetimes are `JWT_ACCESS_TOKEN_TTL` and `JWT_REFRESH_TOKEN_TTL`. The signing implementation is Spring Security's Nimbus `JwtEncoder` (`spring-security-oauth2-jose`), using HMAC-SHA256. There is no OAuth authorization server.
 
-Public routes are health, register, login, refresh, and logout. `/api/v1/auth/me` and every future user, watchlist, and portfolio route require `Authorization: Bearer`. The API does not use server sessions. CSRF is disabled because the browser is not granted a cookie session.
+Public routes are health, register, login, refresh, and logout. `/api/v1/auth/me`, `/api/v1/watchlists`, and every other route require `Authorization: Bearer`. The API does not use server sessions. CSRF is disabled because the browser is not granted a cookie session.
+
+## Watchlist API
+
+Watchlist routes live in the `watchlist` package. Controllers return DTOs. The owner is the user id in the access token. The client cannot submit an owner id.
+
+| Route | Behavior |
+| --- | --- |
+| `POST /api/v1/watchlists` | Creates a named list for the authenticated user. |
+| `GET /api/v1/watchlists` | Lists that user's lists, with item counts, ordered by `createdAt` then id. |
+| `GET /api/v1/watchlists/{id}` | Returns the list and its items. Each item includes the persisted instrument and, when the provider has one, a separate quote observation. |
+| `PATCH /api/v1/watchlists/{id}` | Renames the list. |
+| `DELETE /api/v1/watchlists/{id}` | Deletes the items, then the list. The database foreign key stays `ON DELETE RESTRICT`, so the service removes children in the same transaction. |
+| `POST /api/v1/watchlists/{id}/items` | Adds an existing instrument. The same instrument cannot appear twice. |
+| `DELETE /api/v1/watchlists/{id}/items/{itemId}` | Removes one membership. |
+| `PUT /api/v1/watchlists/{id}/items/order` | Replaces display order in one SQL update. The body must contain each item id of that list exactly once. |
+
+A request for another user's watchlist returns the same `404` as a missing id. The response does not say whether the id exists.
+
+`sort_order` is display position, starting at zero. It is not a market rank. Quotes are read through `MarketDataService` when a list is loaded and are not written onto `watchlist_items`. A quote is attached only when its exchange and symbol match the persisted instrument, and `synthetic` stays on the observation.
+
+Reading a watchlist does not record that the user checked it. Membership already has `addedAt` (`created_at`). A later "since last check" feature can store a check cursor on the watchlist, or in its own table, and compare that cursor with membership changes and fresh observations. The read path must not move that cursor, or the explanation of what changed would disappear on every view.

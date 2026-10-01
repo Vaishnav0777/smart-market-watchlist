@@ -52,6 +52,10 @@ public class Watchlist extends AuditableEntity {
         return name;
     }
 
+    public void renameTo(String name) {
+        this.name = name;
+    }
+
     public List<WatchlistItem> getItems() {
         return items;
     }

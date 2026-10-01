@@ -86,13 +86,14 @@ Implemented:
 - Market-data port, quote models, and synthetic provider
 - Persistent users, instruments, watchlists, watchlist items, portfolios, and positions
 - Registration, login, JWT access tokens, and rotating refresh sessions
+- Authenticated watchlist API with per-user ownership
 - Flyway schema migrations and Spring Data repositories
 - Docker Compose services for PostgreSQL and Redis
 - Maven Wrapper
 
 Not implemented yet:
 
-- Watchlist and portfolio HTTP APIs
+- Portfolio HTTP API
 - Redis client usage
 - Meaningful-change detection
 - Market or portfolio analytics
