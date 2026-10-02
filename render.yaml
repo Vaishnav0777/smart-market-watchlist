@@ -46,7 +46,6 @@ services:
     branch: main
     region: singapore
     plan: free
-    rootDir: frontend
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
     healthCheckPath: /
