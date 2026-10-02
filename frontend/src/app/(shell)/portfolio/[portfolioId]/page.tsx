@@ -1,11 +1,11 @@
 "use client";
 
-import { ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/components/states";
+import { EmptyState, ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
 import { ApiError } from "@/lib/api/client";
 import { searchInstruments } from "@/lib/api/instruments";
 import { addPosition, getPortfolio, getPortfolioAnalytics, removePosition, updatePosition } from "@/lib/api/portfolios";
-import { formatMoney, formatPercent, formatQuantity } from "@/lib/format";
-import type { HoldingAnalytics, InstrumentListing, Portfolio, PortfolioAnalytics, Position } from "@/lib/types";
+import { formatMoney, formatPercent, formatQuantity, qualityLabel } from "@/lib/format";
+import type { HoldingAnalytics, InstrumentListing, MarketDataQuality, MarketDataSource, Portfolio, PortfolioAnalytics, Position } from "@/lib/types";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -148,14 +148,17 @@ export default function PortfolioDetailPage() {
 
   return (
     <div className="grid gap-6">
-      <header>
-        <Link href="/portfolio" className="text-xs tracking-[0.16em] text-brass uppercase">Portfolio</Link>
-        <h1 className="mt-2 font-serif text-4xl">{portfolio.name}</h1>
-        <p className="mt-2 text-sm text-muted">
-          {portfolio.positions.length} {portfolio.positions.length === 1 ? "position" : "positions"}
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Link href="/portfolio" className="text-xs tracking-[0.16em] text-brass uppercase">Portfolio</Link>
+          <h1 className="mt-2 font-serif text-4xl">{portfolio.name}</h1>
+          <p className="mt-2 text-sm text-muted">
+            {portfolio.positions.length} {portfolio.positions.length === 1 ? "holding" : "holdings"}
+          </p>
+        </div>
+        {analytics?.realTime ? <DataMark quality="REAL_TIME" source={null} /> : null}
       </header>
-      <SyntheticNotice quotes={portfolio.positions.flatMap((position) => position.quote ? [position.quote] : [])} />
+      <SyntheticNotice quotes={noticeQuotes(portfolio, analytics)} />
       <AnalyticsSection analytics={analytics} error={analyticsError} onRetry={() => loadAnalytics(true)} />
       {actionError ? <p className="text-sm text-negative" role="alert">{actionError}</p> : null}
 
@@ -196,50 +199,23 @@ export default function PortfolioDetailPage() {
         <button className="button-primary w-fit" type="submit" disabled={pending}>{pending ? "Adding" : "Add position"}</button>
       </form>
 
-      {portfolio.positions.length === 0 ? (
-        <div className="surface px-5 py-8">
-          <h2 className="font-serif text-2xl">No positions</h2>
-          <p className="mt-2 text-sm text-muted">Add an instrument that already exists in the directory.</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[52rem] text-left text-sm">
-            <thead className="text-xs tracking-wide text-muted uppercase">
-              <tr>
-                <th className="px-3 py-2 font-medium">Instrument</th>
-                <th className="px-3 py-2 font-medium">Quantity</th>
-                <th className="px-3 py-2 font-medium">Average price</th>
-                <th className="px-3 py-2 font-medium">Current price</th>
-                <th className="px-3 py-2 font-medium">Invested</th>
-                <th className="px-3 py-2 font-medium">Current value</th>
-                <th className="px-3 py-2 font-medium">Profit / loss</th>
-                <th className="px-3 py-2 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {portfolio.positions.map((position) => (
-                <PositionRow
-                  key={position.id}
-                  position={position}
-                  editing={editingId === position.id}
-                  editQuantity={editQuantity}
-                  editPrice={editPrice}
-                  onEditQuantity={setEditQuantity}
-                  onEditPrice={setEditPrice}
-                  onStartEdit={() => {
-                    setEditingId(position.id);
-                    setEditQuantity(String(position.quantity));
-                    setEditPrice(String(position.averageBuyPrice));
-                  }}
-                  onCancel={() => setEditingId(null)}
-                  onSave={() => onSave(position)}
-                  onRemove={() => onRemove(position)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <HoldingsSection
+        portfolio={portfolio}
+        analytics={analytics}
+        editingId={editingId}
+        editQuantity={editQuantity}
+        editPrice={editPrice}
+        onEditQuantity={setEditQuantity}
+        onEditPrice={setEditPrice}
+        onStartEdit={(position) => {
+          setEditingId(position.id);
+          setEditQuantity(String(position.quantity));
+          setEditPrice(String(position.averageBuyPrice));
+        }}
+        onCancel={() => setEditingId(null)}
+        onSave={onSave}
+        onRemove={onRemove}
+      />
     </div>
   );
 }
@@ -255,10 +231,6 @@ function AnalyticsSection({
 }) {
   return (
     <section className="grid gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-serif text-2xl">Portfolio analytics</h2>
-        {analytics?.realTime ? <QualityBadge quality="REAL_TIME" /> : null}
-      </div>
       {!analytics && error ? <ErrorState error={error} onRetry={onRetry} /> : null}
       {!analytics && !error ? <LoadingState label="Loading analytics" /> : null}
       {error && analytics ? <p className="text-sm text-negative" role="alert">Analytics could not be refreshed.</p> : null}
@@ -270,11 +242,12 @@ function AnalyticsSection({
 function AnalyticsSummary({ analytics }: { analytics: PortfolioAnalytics }) {
   const currency = analytics.currency;
   const noQuote = !analytics.mixedCurrencies && analytics.returnPercent == null && analytics.unvaluedPositions > 0;
+  const largest = [...analytics.instrumentAllocations].sort((left, right) => right.percentage - left.percentage || left.symbol.localeCompare(right.symbol));
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-6">
       {analytics.mixedCurrencies ? (
         <p className="text-sm leading-6 text-muted">
-          This portfolio uses more than one currency. Invested amount, value, profit and loss, return, and allocation are not combined.
+          This portfolio uses more than one currency. Invested amount, value, unrealized P&L, return, and allocation are not combined into one total.
         </p>
       ) : null}
       {noQuote ? (
@@ -282,50 +255,61 @@ function AnalyticsSummary({ analytics }: { analytics: PortfolioAnalytics }) {
           No quote is available for the open positions. They stay in the amount invested and are left out of value and profit.
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <AnalyticsFigure label="Total invested" value={formatMoney(analytics.totalInvested, currency)} />
-        <AnalyticsFigure label="Current value" value={formatMoney(analytics.currentValue, currency)} />
-        <AnalyticsFigure label="Total P&L" value={formatMoney(analytics.totalPnl, currency)} tone={moneyTone(analytics.totalPnl)} />
-        <AnalyticsFigure label="Return" value={formatPercent(analytics.returnPercent) ?? "—"} tone={moneyTone(analytics.returnPercent)} />
-        <AnalyticsFigure label="Winners" value={String(analytics.winners)} />
-        <AnalyticsFigure label="Losers" value={String(analytics.losers)} />
-        <AnalyticsFigure label="Unvalued positions" value={String(analytics.unvaluedPositions)} />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <PerformerCard title="Best performer" holding={analytics.best} />
-        <PerformerCard title="Worst performer" holding={analytics.worst} />
-      </div>
-      <AllocationList
-        title="Sector allocation"
-        empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
-        rows={analytics.sectorAllocations.map((slice) => ({
-          key: slice.sector,
-          label: slice.sector,
-          invested: slice.invested,
-          percentage: slice.percentage,
-        }))}
-        currency={currency}
-      />
-      <AllocationList
-        title="Instrument allocation"
-        empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
-        rows={analytics.instrumentAllocations.map((slice) => ({
-          key: slice.instrumentId,
-          label: `${slice.symbol} · ${slice.exchange}`,
-          invested: slice.invested,
-          percentage: slice.percentage,
-        }))}
-        currency={currency}
-      />
+      {!analytics.realTime && analytics.holdings.some((holding) => holding.currentValue != null) ? (
+        <p className="text-sm leading-6 text-muted">These quotes are not all real-time.</p>
+      ) : null}
+      <section className="grid gap-3">
+        <h2 className="font-serif text-2xl">Summary</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <AnalyticsFigure label="Total portfolio value" value={formatMoney(analytics.currentValue, currency)} featured />
+          <AnalyticsFigure label="Total invested" value={formatMoney(analytics.totalInvested, currency)} />
+          <AnalyticsFigure label="Unrealized P&L" value={formatMoney(analytics.totalPnl, currency)} tone={moneyTone(analytics.totalPnl)} />
+          <AnalyticsFigure label="Return" value={formatPercent(analytics.returnPercent) ?? "—"} tone={moneyTone(analytics.returnPercent)} />
+        </div>
+      </section>
+      <section className="grid gap-3">
+        <h2 className="font-serif text-2xl">Performance</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <PerformerCard title="Best-performing holding" holding={analytics.best} />
+          <PerformerCard title="Worst-performing holding" holding={analytics.worst} />
+        </div>
+      </section>
+      <section className="grid gap-4">
+        <h2 className="font-serif text-2xl">Allocation</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <AllocationList
+            title="Largest holdings"
+            empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
+            rows={largest.map((slice) => ({
+              key: slice.instrumentId,
+              label: `${slice.symbol} · ${slice.exchange}`,
+              invested: slice.invested,
+              percentage: slice.percentage,
+            }))}
+            currency={currency}
+          />
+          <AllocationList
+            title="Sectors"
+            empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
+            rows={analytics.sectorAllocations.map((slice) => ({
+              key: slice.sector,
+              label: slice.sector,
+              invested: slice.invested,
+              percentage: slice.percentage,
+            }))}
+            currency={currency}
+          />
+        </div>
+      </section>
     </div>
   );
 }
 
-function AnalyticsFigure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function AnalyticsFigure({ label, value, tone, featured }: { label: string; value: string; tone?: string; featured?: boolean }) {
   return (
-    <div className="surface px-4 py-4">
-      <p className="text-xs tracking-wide text-muted uppercase">{label}</p>
-      <p className={`mt-2 font-serif text-2xl tabular-nums ${tone ?? "text-foreground"}`}>{value}</p>
+    <div className={`surface px-4 py-4 ${featured ? "sm:col-span-2 lg:col-span-1" : ""}`}>
+      <p className="text-xs tracking-[0.14em] text-brass uppercase">{label}</p>
+      <p className={`mt-2 font-serif tabular-nums ${featured ? "text-4xl" : "text-2xl"} ${tone ?? "text-foreground"}`}>{value}</p>
     </div>
   );
 }
@@ -335,18 +319,21 @@ function PerformerCard({ title, holding }: { title: string; holding: HoldingAnal
     <div className="surface px-4 py-4">
       <h3 className="font-serif text-xl">{title}</h3>
       {holding ? (
-        <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
+        <div className="mt-3 grid gap-2">
           <p>
             <Link href={`/instruments/${holding.instrumentId}`} className="text-foreground">{holding.symbol}</Link>
             <span className="text-sm text-muted"> · {holding.exchange}</span>
           </p>
-          <p className={`tabular-nums ${moneyTone(holding.returnPercent)}`}>
-            {formatPercent(holding.returnPercent) ?? "—"}
+          <p className={`font-serif text-2xl tabular-nums ${moneyTone(holding.pnl)}`}>
+            {formatMoney(holding.pnl, holding.currency)}
           </p>
-          {holding.quality ? <QualityBadge quality={holding.quality} /> : null}
+          <p className={`text-sm tabular-nums ${moneyTone(holding.returnPercent)}`}>
+            {formatPercent(holding.returnPercent) ?? "Return unavailable"}
+          </p>
+          <DataMark quality={holding.quality} source={holding.source} />
         </div>
       ) : (
-        <p className="mt-2 text-sm text-muted">—</p>
+        <p className="mt-2 text-sm text-muted">No valued holding to compare.</p>
       )}
     </div>
   );
@@ -369,12 +356,17 @@ function AllocationList({
       {rows.length === 0 ? (
         <p className="mt-2 text-sm text-muted">{empty}</p>
       ) : (
-        <ul className="mt-2 grid gap-2">
+        <ul className="mt-2 grid gap-3">
           {rows.map((row) => (
-            <li key={row.key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line py-2 text-sm">
-              <span className="text-foreground">{row.label}</span>
-              <span className="tabular-nums text-muted">
-                {formatMoney(row.invested, currency)} · {shareLabel(row.percentage)}
+            <li key={row.key} className="grid gap-1 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <span className="text-foreground">{row.label}</span>
+                <span className="tabular-nums text-muted">
+                  {formatMoney(row.invested, currency)} · {shareLabel(row.percentage)}
+                </span>
+              </div>
+              <span className="block h-1.5 overflow-hidden rounded-full bg-line">
+                <span className="block h-full rounded-full bg-brass" style={{ width: `${barWidth(row.percentage)}%` }} />
               </span>
             </li>
           ))}
@@ -392,6 +384,13 @@ function shareLabel(value: number): string {
   return formatted.startsWith("+") ? formatted.slice(1) : formatted;
 }
 
+function barWidth(percentage: number): number {
+  if (!Number.isFinite(percentage) || percentage <= 0) {
+    return 0;
+  }
+  return Math.min(percentage, 100);
+}
+
 function moneyTone(value: number | null): string {
   if (value == null || value === 0) {
     return "text-muted";
@@ -399,9 +398,10 @@ function moneyTone(value: number | null): string {
   return value < 0 ? "text-negative" : "text-positive";
 }
 
-function PositionRow({
-  position,
-  editing,
+function HoldingsSection({
+  portfolio,
+  analytics,
+  editingId,
   editQuantity,
   editPrice,
   onEditQuantity,
@@ -411,23 +411,137 @@ function PositionRow({
   onSave,
   onRemove,
 }: {
-  position: Position;
-  editing: boolean;
+  portfolio: Portfolio;
+  analytics: PortfolioAnalytics | null;
+  editingId: string | null;
   editQuantity: string;
   editPrice: string;
   onEditQuantity: (value: string) => void;
   onEditPrice: (value: string) => void;
-  onStartEdit: () => void;
+  onStartEdit: (position: Position) => void;
   onCancel: () => void;
-  onSave: () => void;
-  onRemove: () => void;
+  onSave: (position: Position) => void;
+  onRemove: (position: Position) => void;
 }) {
-  const currency = position.quote?.currency ?? "INR";
-  const invested = position.quantity * position.averageBuyPrice;
-  const current = position.quote ? position.quantity * position.quote.price : null;
-  const pnl = current == null ? null : current - invested;
-  const percent = pnl == null || invested === 0 ? null : (pnl / invested) * 100;
-  const tone = pnl == null ? "text-muted" : pnl < 0 ? "text-negative" : "text-positive";
+  if (portfolio.positions.length === 0) {
+    return <EmptyState title="No holdings" body="Add an instrument that already exists in the directory." />;
+  }
+  return (
+    <section className="grid gap-3">
+      <h2 className="font-serif text-2xl">Holdings</h2>
+      <div className="grid gap-3 md:hidden">
+        {portfolio.positions.map((position) => (
+          <HoldingCard
+            key={position.id}
+            position={position}
+            holding={matchHolding(position, analytics)}
+            figuresReady={analytics != null}
+            editing={editingId === position.id}
+            editQuantity={editQuantity}
+            editPrice={editPrice}
+            onEditQuantity={onEditQuantity}
+            onEditPrice={onEditPrice}
+            onStartEdit={() => onStartEdit(position)}
+            onCancel={onCancel}
+            onSave={() => onSave(position)}
+            onRemove={() => onRemove(position)}
+          />
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[46rem] text-left text-sm">
+          <thead className="text-xs tracking-wide text-muted uppercase">
+            <tr>
+              <th className="px-3 py-2 font-medium">Symbol</th>
+              <th className="px-3 py-2 font-medium">Quantity</th>
+              <th className="px-3 py-2 font-medium">Average price</th>
+              <th className="px-3 py-2 font-medium">Current value</th>
+              <th className="px-3 py-2 font-medium">P&L</th>
+              <th className="px-3 py-2 font-medium">Return</th>
+              <th className="px-3 py-2 font-medium">Quote</th>
+              <th className="px-3 py-2 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {portfolio.positions.map((position) => (
+              <HoldingRow
+                key={position.id}
+                position={position}
+                holding={matchHolding(position, analytics)}
+                figuresReady={analytics != null}
+                editing={editingId === position.id}
+                editQuantity={editQuantity}
+                editPrice={editPrice}
+                onEditQuantity={onEditQuantity}
+                onEditPrice={onEditPrice}
+                onStartEdit={() => onStartEdit(position)}
+                onCancel={onCancel}
+                onSave={() => onSave(position)}
+                onRemove={() => onRemove(position)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function HoldingCard(props: HoldingEditors & { position: Position; holding: HoldingAnalytics | null; figuresReady: boolean }) {
+  const { position, holding, figuresReady } = props;
+  return (
+    <article className="surface grid gap-3 px-4 py-4 text-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <Link href={`/instruments/${position.instrument.id}`} className="text-foreground">{position.instrument.symbol}</Link>
+          <p className="text-xs text-muted">{position.instrument.displayName}</p>
+        </div>
+        {figuresReady ? <DataMark quality={holding?.quality ?? null} source={holding?.source ?? null} /> : <span className="text-xs text-muted">—</span>}
+      </div>
+      <dl className="grid grid-cols-2 gap-3">
+        <FigureTerm label="Quantity" value={props.editing ? null : formatQuantity(position.quantity)} />
+        <FigureTerm label="Current value" value={formatMoney(holding?.currentValue, holding?.currency)} tone={moneyTone(holding?.pnl ?? null)} />
+        <FigureTerm label="P&L" value={formatMoney(holding?.pnl, holding?.currency)} tone={moneyTone(holding?.pnl ?? null)} />
+        <FigureTerm label="Return" value={formatPercent(holding?.returnPercent ?? null) ?? "—"} tone={moneyTone(holding?.returnPercent ?? null)} />
+      </dl>
+      <HoldingEditors
+        editing={props.editing}
+        editQuantity={props.editQuantity}
+        editPrice={props.editPrice}
+        onEditQuantity={props.onEditQuantity}
+        onEditPrice={props.onEditPrice}
+        onStartEdit={props.onStartEdit}
+        onCancel={props.onCancel}
+        onSave={props.onSave}
+        onRemove={props.onRemove}
+      />
+    </article>
+  );
+}
+
+function FigureTerm({ label, value, tone }: { label: string; value: string | null; tone?: string }) {
+  return (
+    <div>
+      <dt className="text-xs tracking-wide text-muted uppercase">{label}</dt>
+      <dd className={`mt-1 tabular-nums ${tone ?? "text-foreground"}`}>{value}</dd>
+    </div>
+  );
+}
+
+function HoldingRow({
+  position,
+  holding,
+  figuresReady,
+  editing,
+  editQuantity,
+  editPrice,
+  onEditQuantity,
+  onEditPrice,
+  onStartEdit,
+  onCancel,
+  onSave,
+  onRemove,
+}: HoldingEditors & { position: Position; holding: HoldingAnalytics | null; figuresReady: boolean }) {
   return (
     <tr className="border-t border-line">
       <td className="px-3 py-3">
@@ -438,34 +552,122 @@ function PositionRow({
         {editing ? <input className="field" value={editQuantity} onChange={(event) => onEditQuantity(event.target.value)} /> : formatQuantity(position.quantity)}
       </td>
       <td className="px-3 py-3 tabular-nums">
-        {editing ? <input className="field" value={editPrice} onChange={(event) => onEditPrice(event.target.value)} /> : formatMoney(position.averageBuyPrice, currency)}
+        {editing ? <input className="field" value={editPrice} onChange={(event) => onEditPrice(event.target.value)} /> : formatMoney(position.averageBuyPrice, holding?.currency ?? position.quote?.currency)}
       </td>
-      <td className="px-3 py-3 tabular-nums">
-        {position.quote ? formatMoney(position.quote.price, currency) : "No quote"}
-        {position.quote ? <p className="mt-1"><QualityBadge quality={position.quote.quality} /></p> : null}
-      </td>
-      <td className="px-3 py-3 tabular-nums">{formatMoney(invested, currency)}</td>
-      <td className="px-3 py-3 tabular-nums">{formatMoney(current, currency)}</td>
-      <td className={`px-3 py-3 tabular-nums ${tone}`}>
-        {pnl == null ? "—" : `${formatMoney(pnl, currency)}${formatPercent(percent) ? ` (${formatPercent(percent)})` : ""}`}
-      </td>
+      <td className="px-3 py-3 tabular-nums">{formatMoney(holding?.currentValue, holding?.currency)}</td>
+      <td className={`px-3 py-3 tabular-nums ${moneyTone(holding?.pnl ?? null)}`}>{formatMoney(holding?.pnl, holding?.currency)}</td>
+      <td className={`px-3 py-3 tabular-nums ${moneyTone(holding?.returnPercent ?? null)}`}>{formatPercent(holding?.returnPercent ?? null) ?? "—"}</td>
+      <td className="px-3 py-3">{figuresReady ? <DataMark quality={holding?.quality ?? null} source={holding?.source ?? null} /> : <span className="text-xs text-muted">—</span>}</td>
       <td className="px-3 py-3">
-        <div className="flex gap-2">
-          {editing ? (
-            <>
-              <button className="button-primary" type="button" onClick={onSave}>Save</button>
-              <button className="button-secondary" type="button" onClick={onCancel}>Cancel</button>
-            </>
-          ) : (
-            <>
-              <button className="button-secondary" type="button" onClick={onStartEdit}>Edit</button>
-              <button className="button-secondary" type="button" onClick={onRemove}>Remove</button>
-            </>
-          )}
-        </div>
+        <RowActions editing={editing} onStartEdit={onStartEdit} onCancel={onCancel} onSave={onSave} onRemove={onRemove} />
       </td>
     </tr>
   );
+}
+
+type HoldingEditors = {
+  editing: boolean;
+  editQuantity: string;
+  editPrice: string;
+  onEditQuantity: (value: string) => void;
+  onEditPrice: (value: string) => void;
+  onStartEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  onRemove: () => void;
+};
+
+function HoldingEditors({
+  editing,
+  editQuantity,
+  editPrice,
+  onEditQuantity,
+  onEditPrice,
+  onStartEdit,
+  onCancel,
+  onSave,
+  onRemove,
+}: HoldingEditors) {
+  return (
+    <div className="grid gap-2">
+      {editing ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="grid gap-1 text-xs text-muted">
+            Quantity
+            <input className="field" value={editQuantity} onChange={(event) => onEditQuantity(event.target.value)} />
+          </label>
+          <label className="grid gap-1 text-xs text-muted">
+            Average price
+            <input className="field" value={editPrice} onChange={(event) => onEditPrice(event.target.value)} />
+          </label>
+        </div>
+      ) : null}
+      <RowActions editing={editing} onStartEdit={onStartEdit} onCancel={onCancel} onSave={onSave} onRemove={onRemove} />
+    </div>
+  );
+}
+
+function RowActions({
+  editing,
+  onStartEdit,
+  onCancel,
+  onSave,
+  onRemove,
+}: Pick<HoldingEditors, "editing" | "onStartEdit" | "onCancel" | "onSave" | "onRemove">) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {editing ? (
+        <>
+          <button className="button-primary" type="button" onClick={onSave}>Save</button>
+          <button className="button-secondary" type="button" onClick={onCancel}>Cancel</button>
+        </>
+      ) : (
+        <>
+          <button className="button-secondary" type="button" onClick={onStartEdit}>Edit</button>
+          <button className="button-secondary" type="button" onClick={onRemove}>Remove</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function matchHolding(position: Position, analytics: PortfolioAnalytics | null): HoldingAnalytics | null {
+  return analytics?.holdings.find((holding) => holding.instrumentId === position.instrument.id) ?? null;
+}
+
+function noticeQuotes(portfolio: Portfolio, analytics: PortfolioAnalytics | null): { source: MarketDataSource }[] {
+  if (analytics) {
+    return analytics.holdings.flatMap((holding) => holding.source ? [{ source: holding.source }] : []);
+  }
+  return portfolio.positions.flatMap((position) => position.quote ? [{ source: position.quote.source }] : []);
+}
+
+function DataMark({ quality, source }: { quality: MarketDataQuality | null; source: MarketDataSource | null }) {
+  if (!quality && !source) {
+    return <span className="text-xs text-muted">No quote</span>;
+  }
+  const tone = quality === "REAL_TIME"
+    ? "border-positive text-positive"
+    : quality === "DELAYED" || quality === "END_OF_DAY"
+      ? "border-brass text-brass"
+      : "border-negative text-negative";
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {quality ? <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${tone}`}>{qualityLabel(quality)}</span> : null}
+      {source ? <span className="text-xs text-muted">{sourceLabel(source)}</span> : null}
+    </span>
+  );
+}
+
+function sourceLabel(source: MarketDataSource): string {
+  switch (source) {
+    case "MOCK":
+      return "Synthetic";
+    case "UPSTOX":
+      return "Upstox";
+    case "OTHER":
+      return "Other provider";
+  }
 }
 
 function positiveDecimal(value: string): boolean {
