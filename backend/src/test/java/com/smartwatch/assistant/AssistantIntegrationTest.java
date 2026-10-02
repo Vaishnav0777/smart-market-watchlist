@@ -113,6 +113,14 @@ class AssistantIntegrationTest extends PostgresIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"question\":\"" + "a".repeat(501) + "\"}"))
                 .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/assistant/questions")
+                        .header("Authorization", bearer(grace))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"question\":\"What is my current portfolio value?\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answer").value("You do not have a portfolio yet."))
+                .andExpect(jsonPath("$.answer", not(containsString("RELIANCE"))));
     }
 
     private String token(String email, String displayName) throws Exception {

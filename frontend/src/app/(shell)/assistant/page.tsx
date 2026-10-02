@@ -10,6 +10,10 @@ const examples = [
   "What is my total P&L?",
   "How is my portfolio distributed across sectors?",
   "What changed since I last checked?",
+  "How many holdings do I have?",
+  "What is my current portfolio value?",
+  "Which holdings are unvalued?",
+  "Which investments are currently losing money?",
 ];
 
 const sourceLabel: Record<AssistantSource, string> = {
@@ -24,12 +28,12 @@ export default function AssistantPage() {
   const [error, setError] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
 
-  async function onAsk(event: React.FormEvent) {
-    event.preventDefault();
-    const trimmed = question.trim();
-    if (!trimmed) {
+  async function ask(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || pending) {
       return;
     }
+    setQuestion(trimmed);
     setPending(true);
     setError(null);
     setAnswer(null);
@@ -40,6 +44,11 @@ export default function AssistantPage() {
     } finally {
       setPending(false);
     }
+  }
+
+  function onAsk(event: React.FormEvent) {
+    event.preventDefault();
+    void ask(question);
   }
 
   return (
@@ -67,7 +76,8 @@ export default function AssistantPage() {
               key={example}
               className="button-secondary"
               type="button"
-              onClick={() => setQuestion(example)}
+              disabled={pending}
+              onClick={() => void ask(example)}
             >
               {example}
             </button>

@@ -141,6 +141,88 @@ class AssistantReplyBuilderTest {
     }
 
     @Test
+    void reportsCurrentValueFromAnalytics() {
+        AssistantAnswerResponse answer = ask("What is my current portfolio value?", book());
+
+        assertThat(answer.answer()).contains("Long Term", "40000.0000 INR");
+        assertThat(answer.sources()).containsExactly(AssistantSources.PORTFOLIO_ANALYTICS);
+        assertThat(answer.refused()).isFalse();
+    }
+
+    @Test
+    void explainsCurrentValueWhenNoQuoteExists() {
+        AssistantContext context = context(portfolio("Long Term", analytics(
+                money("2000"),
+                new BigDecimal("0.0000"),
+                new BigDecimal("0.0000"),
+                null,
+                false,
+                false,
+                0,
+                0,
+                1,
+                (HoldingAnalyticsResponse) null,
+                (HoldingAnalyticsResponse) null,
+                List.of(),
+                List.of(holding("INFY", null, null, null, null)))));
+
+        AssistantAnswerResponse answer = ask("What is my current portfolio value?", context);
+
+        assertThat(answer.answer()).contains("cannot be determined", "no holding has a quote");
+        assertThat(answer.answer()).doesNotContain("0.0000");
+    }
+
+    @Test
+    void doesNotCombineCurrentValueAcrossCurrencies() {
+        AssistantContext context = new AssistantContext(List.of(
+                portfolio("India", analytics(
+                        money("20000"), money("25000"), money("5000"), new BigDecimal("25.00"),
+                        false, false, 1, 0, 0,
+                        holding("RELIANCE", "25000.0000", "5000.0000", "25.00", MarketDataQuality.END_OF_DAY),
+                        holding("RELIANCE", "25000.0000", "5000.0000", "25.00", MarketDataQuality.END_OF_DAY),
+                        List.of(),
+                        List.of(holding("RELIANCE", "25000.0000", "5000.0000", "25.00", MarketDataQuality.END_OF_DAY)))),
+                portfolio("Foreign", analytics(
+                        money("100"), money("110"), money("10"), new BigDecimal("10.00"),
+                        false, false, 1, 0, 0,
+                        holding("AAPL", "110.0000", "10.0000", "10.00", MarketDataQuality.DELAYED, "USD"),
+                        holding("AAPL", "110.0000", "10.0000", "10.00", MarketDataQuality.DELAYED, "USD"),
+                        List.of(),
+                        List.of(holding("AAPL", "110.0000", "10.0000", "10.00", MarketDataQuality.DELAYED, "USD"))))), List.of());
+
+        AssistantAnswerResponse answer = ask("What is my current portfolio value?", context);
+
+        assertThat(answer.answer()).contains("not combined", "25000.0000 INR", "110.0000 USD");
+        assertThat(answer.answer()).doesNotContain("25110");
+    }
+
+    @Test
+    void reportsHowManyHoldingsAreStored() {
+        AssistantAnswerResponse answer = ask("How many holdings do I have?", book());
+
+        assertThat(answer.answer()).isEqualTo("Long Term has 2 holdings.");
+        assertThat(answer.sources()).containsExactly(AssistantSources.PORTFOLIO_ANALYTICS);
+    }
+
+    @Test
+    void reportsHoldingsThatAreLosingMoney() {
+        AssistantAnswerResponse answer = ask("Which investments are currently losing money?", book());
+
+        assertThat(answer.answer()).contains("Long Term", "1 holding", "TCS", "-5000.0000 INR");
+        assertThat(answer.answer()).doesNotContain("RELIANCE at");
+        assertThat(answer.refused()).isFalse();
+    }
+
+    @Test
+    void saysWhenTheUserHasNoPortfolio() {
+        AssistantAnswerResponse answer = ask("What is my total P&L?", new AssistantContext(List.of(), List.of()));
+
+        assertThat(answer.answer()).isEqualTo("You do not have a portfolio yet.");
+        assertThat(answer.refused()).isFalse();
+        assertThat(answer.sources()).containsExactly(AssistantSources.PORTFOLIO_ANALYTICS);
+    }
+
+    @Test
     void explainsUnsupportedQuestions() {
         AssistantAnswerResponse answer = ask("What is the capital of France?", book());
 
