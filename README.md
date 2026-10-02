@@ -76,7 +76,9 @@ Implemented:
 - Instrument search that resolves provider listings to persisted identities
 - Market observations and meaningful-change detection since an explicit check. The first check stores no invented history. A later check reports only moves past the configured thresholds, or says there is no material change.
 - Portfolio create, rename, delete, and position add, edit, and remove for the signed-in owner
-- Next.js screens for sign-in, dashboard, watchlists, search, instrument detail, portfolio, and account
+- Portfolio analytics for invested amount, value, profit and loss, allocation, and quote quality
+- A stateless personal assistant that answers from those stored figures and from watchlist changes. It does not call an external model
+- Next.js screens for sign-in, dashboard, watchlists, search, instrument detail, portfolio, assistant, and account
 - Flyway schema migrations and integration tests
 - Docker Compose services for PostgreSQL and Redis
 
@@ -85,7 +87,8 @@ Not implemented yet:
 - Upstox WebSocket streaming, polling, and a seeded instrument-key catalog
 - Redis client usage
 - Broker integration
-- AI assistant or price prediction
+- An external language-model provider. `AssistantModel` is ready for one; V1 does not enable it
+- Price prediction and trade recommendations
 - Kafka
 - AWS, Terraform, and CI/CD
 

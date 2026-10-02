@@ -11,6 +11,7 @@ const links = [
   { href: "/watchlists", label: "Watchlists" },
   { href: "/search", label: "Search" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/assistant", label: "Assistant" },
   { href: "/account", label: "Account" },
 ];
 

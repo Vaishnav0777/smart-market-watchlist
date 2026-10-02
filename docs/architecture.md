@@ -10,7 +10,8 @@ backend (Spring Boot)
   marketdata      instrument identity, quotes, and MarketDataProvider
   user            accounts, password hashes, refresh sessions, JWT access tokens
   watchlist       watchlists and watchlist items
-  portfolio       portfolios and positions
+  portfolio       portfolios, positions, and portfolio analytics
+  assistant       grounded questions about the signed-in user's books
         |
 MarketDataProvider
   MockMarketDataProvider          synthetic fixtures, default
@@ -29,7 +30,11 @@ Persisted timestamps are `Instant` values, stored as `timestamptz` and written i
 
 Redis is defined in Docker Compose for later caching. The backend does not connect to Redis yet.
 
-Portfolio analytics, AI, Kafka, and cloud deployment are not implemented. Change detection compares stored observations with the latest quote. It does not predict a future price.
+Portfolio analytics are calculated on read from stored positions and the current quote. `GET /api/v1/portfolios/{id}/analytics` does not write a row.
+
+`POST /api/v1/assistant/questions` answers from those analytics and from watchlist changes. V1 is deterministic and stateless. It does not call an external language model, does not store the question, and does not predict a price or recommend a trade. `AssistantModel` is the seam for a later provider. The local implementation does not open a network connection. A question never acknowledges a watchlist check.
+
+Kafka and cloud deployment are not implemented. Change detection compares stored observations with the latest quote. It does not predict a future price.
 
 ## Core Domain Model
 
@@ -146,6 +151,6 @@ Membership added or removed is the difference between the current items and the 
 
 ## Frontend
 
-The Next.js app is a client of these HTTP APIs. Pages for the dashboard, watchlists, instrument detail, and portfolio render the JSON the backend returns. Percentages on a quote versus its own previous close are display arithmetic on those two fields. Meaningful-change sentences, severity, and counts come only from the change API.
+The Next.js app is a client of these HTTP APIs. Pages for the dashboard, watchlists, instrument detail, portfolio, and assistant render the JSON the backend returns. The assistant page sends one question at a time and keeps only that reply in memory. Percentages on a quote versus its own previous close are display arithmetic on those two fields. Meaningful-change sentences, severity, and counts come only from the change API.
 
 The refresh token is an HttpOnly `SameSite=Lax` cookie named `smw_refresh`, scoped to `/api/v1/auth`. The JSON auth response contains only the short-lived access token. The browser keeps that access token in memory. Logout revokes the refresh session and clears the cookie. A normal watchlist read does not acknowledge a check. The "Mark as checked" action is the explicit cursor update.

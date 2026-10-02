@@ -211,6 +211,14 @@ export type InstrumentAllocation = {
   percentage: number;
 };
 
+export type AssistantSource = "portfolio_analytics" | "watchlist_changes" | "portfolio_summary";
+
+export type AssistantAnswer = {
+  answer: string;
+  refused: boolean;
+  sources: AssistantSource[];
+};
+
 export type PortfolioAnalytics = {
   portfolioId: string;
   currency: string | null;
