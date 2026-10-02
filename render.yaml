@@ -1,14 +1,6 @@
 # Render Blueprint for Smart Market Watchlist.
-# Secrets are generated or entered in the dashboard. Do not put real values here.
-
-databases:
-  - name: smartwatch-db
-    plan: 0.1c-256mb
-    postgresMajorVersion: "17"
-    region: singapore
-    databaseName: smartwatch
-    user: smartwatch
-    ipAllowList: []
+# PostgreSQL is external (Neon Free). Secrets are generated or entered in the dashboard.
+# Do not put real values here.
 
 services:
   - type: web
@@ -17,7 +9,7 @@ services:
     repo: https://github.com/Vaishnav0777/smart-market-watchlist.git
     branch: main
     region: singapore
-    plan: 0.5c-512mb
+    plan: free
     rootDir: backend
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
@@ -25,17 +17,13 @@ services:
     envVars:
       - key: SERVER_PORT
         value: "10000"
-      - key: DATABASE_USERNAME
-        fromDatabase:
-          name: smartwatch-db
-          property: user
-      - key: DATABASE_PASSWORD
-        fromDatabase:
-          name: smartwatch-db
-          property: password
-      # Spring requires a JDBC URL. Render's connectionString is postgresql://...
-      # and Blueprint files cannot rewrite it. Enter the internal JDBC URL once.
+      # Spring reads these separately and does not parse credentials out of the URL.
+      # Use the Neon JDBC URL, for example jdbc:postgresql://<host>/<database>?sslmode=require
       - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
         sync: false
       - key: JWT_SECRET
         generateValue: true
@@ -57,7 +45,7 @@ services:
     repo: https://github.com/Vaishnav0777/smart-market-watchlist.git
     branch: main
     region: singapore
-    plan: 0.5c-512mb
+    plan: free
     rootDir: frontend
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
