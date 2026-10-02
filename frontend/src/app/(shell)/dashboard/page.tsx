@@ -1,13 +1,14 @@
 "use client";
 
 import { ChangeList, CheckStatus } from "@/components/change-list";
-import { ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
+import { EmptyState, ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/components/states";
 import { acknowledgeCheck, getChanges } from "@/lib/api/changes";
+import { ApiError } from "@/lib/api/client";
 import { listPortfolios } from "@/lib/api/portfolios";
 import { listQuotes } from "@/lib/api/quotes";
 import { listWatchlists } from "@/lib/api/watchlists";
-import { formatMoney, formatPercent, previousCloseMove } from "@/lib/format";
-import type { MarketQuote, Portfolio, WatchlistChanges, WatchlistSummary } from "@/lib/types";
+import { changeTypeLabel, formatMoney, formatPercent, previousCloseMove } from "@/lib/format";
+import type { DetectedChange, MarketQuote, Portfolio, WatchlistChanges, WatchlistSummary } from "@/lib/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -23,6 +24,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<unknown>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -60,12 +62,18 @@ export default function DashboardPage() {
     if (!selectedId) {
       return;
     }
+    const watchlistId = selectedId;
     setChecking(true);
+    setCheckError(null);
     try {
-      await acknowledgeCheck(selectedId);
-      setReloadKey((value) => value + 1);
+      await acknowledgeCheck(watchlistId);
+      const next = await getChanges(watchlistId);
+      setData((current) => current == null ? current : {
+        ...current,
+        changesByWatchlist: { ...current.changesByWatchlist, [watchlistId]: next },
+      });
     } catch (caught) {
-      setError(caught);
+      setCheckError(caught instanceof ApiError ? caught.message : "Could not save the check.");
     } finally {
       setChecking(false);
     }
@@ -81,9 +89,12 @@ export default function DashboardPage() {
   const selected = data.watchlists.find((watchlist) => watchlist.id === selectedId) ?? null;
   const changes = selected ? data.changesByWatchlist[selected.id] : null;
   const positionCount = data.portfolios.reduce((sum, portfolio) => sum + portfolio.positions.length, 0);
-  const recent = Object.values(data.changesByWatchlist)
-    .flatMap((entry) => entry.changes)
-    .slice(0, 4);
+  const elsewhere = data.watchlists
+    .filter((watchlist) => watchlist.id !== selected?.id)
+    .flatMap((watchlist) => (data.changesByWatchlist[watchlist.id]?.changes ?? []).map((change) => ({
+      watchlist,
+      change,
+    })));
 
   return (
     <div className="grid gap-8">
@@ -92,7 +103,7 @@ export default function DashboardPage() {
           <p className="text-xs font-medium tracking-[0.18em] text-brass uppercase">Overview</p>
           <h1 className="mt-2 font-serif text-4xl text-foreground">What changed since you last checked</h1>
         </div>
-        <SyntheticNotice />
+        <SyntheticNotice quotes={data.quotes} />
       </header>
 
       <section className="grid gap-3 sm:grid-cols-3">
@@ -124,38 +135,47 @@ export default function DashboardPage() {
           ) : null}
         </div>
         {!selected || !changes ? (
-          <div className="surface px-5 py-8">
-            <h3 className="font-serif text-2xl">No watchlist yet</h3>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-              Create a watchlist and add instruments. Changes are reported against that list after you check it.
-            </p>
+          <EmptyState
+            title="No watchlist yet"
+            body="Create a watchlist and add instruments. Changes are reported against that list after you check it."
+          >
             <Link className="button-primary mt-5 inline-flex" href="/watchlists">Create a watchlist</Link>
-          </div>
+          </EmptyState>
         ) : (
           <div className="grid gap-4">
             <div>
               <p className="mb-2 text-sm text-muted">{selected.name}</p>
               <CheckStatus changes={changes} />
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="button-primary" type="button" onClick={markChecked} disabled={checking}>
+                <button
+                  className="button-primary"
+                  type="button"
+                  onClick={markChecked}
+                  disabled={checking}
+                  aria-busy={checking}
+                >
                   {checking ? "Saving check" : "Mark as checked"}
                 </button>
                 <Link className="button-secondary" href={`/watchlists/${selected.id}`}>Open watchlist</Link>
               </div>
+              {checkError ? <p className="mt-3 text-sm text-negative" role="alert">{checkError}</p> : null}
             </div>
-            {changes.changes.length === 0 ? null : <ChangeList changes={changes.changes} />}
+            {changes.changes.length === 0 ? null : <ChangeList changes={changes.changes} quotes={data.quotes} />}
           </div>
         )}
       </section>
 
-      <section className="grid gap-3">
-        <h2 className="font-serif text-2xl">Recently changed</h2>
-        {recent.length === 0 ? (
-          <p className="text-sm text-muted">Nothing is flagged across your watchlists.</p>
-        ) : (
-          <ChangeList changes={recent} />
-        )}
-      </section>
+      {elsewhere.length === 0 ? null : (
+        <section className="grid gap-3">
+          <h2 className="font-serif text-2xl">Recently changed</h2>
+          <p className="text-sm text-muted">Changes on your other watchlists.</p>
+          <ul className="grid gap-2">
+            {elsewhere.map(({ watchlist, change }) => (
+              <ElsewhereRow key={`${watchlist.id}-${change.instrumentId}-${change.type}`} watchlist={watchlist} change={change} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.8fr)]">
         <div>
@@ -179,7 +199,10 @@ export default function DashboardPage() {
                         <p className="text-foreground">{quote.symbol}</p>
                         <p className="text-xs text-muted">{quote.companyName}</p>
                       </td>
-                      <td className="px-3 py-3 tabular-nums">{formatMoney(quote.price, quote.currency)}</td>
+                      <td className="px-3 py-3">
+                        <p className="tabular-nums">{formatMoney(quote.price, quote.currency)}</p>
+                        <p className="mt-1"><QualityBadge quality={quote.quality} /></p>
+                      </td>
                       <td className={`px-3 py-3 tabular-nums ${tone}`}>{formatPercent(move) ?? "—"}</td>
                     </tr>
                   );
@@ -198,6 +221,23 @@ export default function DashboardPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function ElsewhereRow({ watchlist, change }: { watchlist: WatchlistSummary; change: DetectedChange }) {
+  const percent = formatPercent(change.changePercent);
+  return (
+    <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line py-2 text-sm">
+      <span>
+        <Link href={`/watchlists/${watchlist.id}`} className="text-foreground">{watchlist.name}</Link>
+        <span className="text-muted"> · </span>
+        <Link href={`/instruments/${change.instrumentId}`} className="text-foreground">{change.symbol}</Link>
+      </span>
+      <span className="text-muted">
+        {changeTypeLabel[change.type]}
+        {percent ? ` · ${percent}` : ""}
+      </span>
+    </li>
   );
 }
 

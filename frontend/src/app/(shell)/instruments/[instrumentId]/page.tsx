@@ -1,11 +1,12 @@
 "use client";
 
 import { ChangeList } from "@/components/change-list";
-import { ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
+import { ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/components/states";
 import { getChanges } from "@/lib/api/changes";
 import { getInstrument, getInstrumentMemberships } from "@/lib/api/instruments";
 import { formatMoney, formatPercent, formatTimestamp, formatVolume, previousCloseMove } from "@/lib/format";
 import type { DetectedChange, InstrumentDetail, InstrumentMembership } from "@/lib/types";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -63,7 +64,7 @@ export default function InstrumentPage() {
         <p className="mt-2 text-muted">{detail.instrument.displayName}</p>
         <p className="mt-1 text-sm text-muted">{detail.instrument.sector}</p>
       </header>
-      {quote?.synthetic ? <SyntheticNotice /> : null}
+      <SyntheticNotice quotes={quote ? [quote] : []} />
 
       {!quote ? (
         <div className="surface px-5 py-8">
@@ -72,7 +73,7 @@ export default function InstrumentPage() {
         </div>
       ) : (
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Last price" value={formatMoney(quote.price, quote.currency)} detail={formatPercent(move) ?? "No previous close"} tone={tone} />
+          <Metric label="Last price" value={formatMoney(quote.price, quote.currency)} detail={formatPercent(move) ?? "No previous close"} tone={tone} badge={<QualityBadge quality={quote.quality} />} />
           <Metric label="Previous close" value={formatMoney(quote.previousClose, quote.currency)} />
           <Metric label="Open" value={formatMoney(quote.open, quote.currency)} />
           <Metric label="Volume" value={formatVolume(quote.volume)} />
@@ -113,12 +114,13 @@ export default function InstrumentPage() {
   );
 }
 
-function Metric({ label, value, detail, tone }: { label: string; value: string; detail?: string; tone?: string }) {
+function Metric({ label, value, detail, tone, badge }: { label: string; value: string; detail?: string; tone?: string; badge?: ReactNode }) {
   return (
     <div className="surface px-4 py-4">
       <p className="text-xs tracking-wide text-muted uppercase">{label}</p>
       <p className="mt-2 text-lg tabular-nums">{value}</p>
       {detail ? <p className={`mt-1 text-sm tabular-nums ${tone ?? "text-muted"}`}>{detail}</p> : null}
+      {badge ? <p className="mt-2">{badge}</p> : null}
     </div>
   );
 }

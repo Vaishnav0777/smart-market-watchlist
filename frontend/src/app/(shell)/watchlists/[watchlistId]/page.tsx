@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeList, CheckStatus } from "@/components/change-list";
-import { ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
+import { ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/components/states";
 import { acknowledgeCheck, getChanges } from "@/lib/api/changes";
 import { ApiError } from "@/lib/api/client";
 import { getWatchlist, removeWatchlistItem, reorderWatchlistItems } from "@/lib/api/watchlists";
@@ -107,7 +107,7 @@ export default function WatchlistDetailPage() {
           </button>
         </div>
       </header>
-      <SyntheticNotice />
+      <SyntheticNotice quotes={watchlist.items.flatMap((item) => item.quote ? [item.quote] : [])} />
       {actionError ? <p className="text-sm text-negative" role="alert">{actionError}</p> : null}
 
       {watchlist.items.length === 0 ? (
@@ -138,6 +138,7 @@ export default function WatchlistDetailPage() {
                     </td>
                     <td className="px-3 py-3 tabular-nums">
                       {item.quote ? formatMoney(item.quote.price, "INR") : "No quote"}
+                      {item.quote ? <p className="mt-1"><QualityBadge quality={item.quote.quality} /></p> : null}
                       {item.quote ? <p className="text-xs text-muted">{formatTimestamp(item.quote.timestamp)}</p> : null}
                     </td>
                     <td className={`px-3 py-3 tabular-nums ${tone}`}>{formatPercent(movePercent) ?? "—"}</td>
@@ -158,7 +159,10 @@ export default function WatchlistDetailPage() {
 
       <section className="grid gap-3">
         <CheckStatus changes={changes} />
-        <ChangeList changes={changes.changes} />
+        <ChangeList
+          changes={changes.changes}
+          quotes={watchlist.items.flatMap((item) => item.quote ? [item.quote] : [])}
+        />
       </section>
     </div>
   );

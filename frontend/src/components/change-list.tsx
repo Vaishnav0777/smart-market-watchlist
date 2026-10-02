@@ -1,5 +1,6 @@
+import { QualityBadge } from "@/components/states";
 import { changeTypeLabel, formatMoney, formatPercent, formatTimestamp, severityLabel } from "@/lib/format";
-import type { DetectedChange, WatchlistChanges } from "@/lib/types";
+import type { DetectedChange, MarketDataQuality, WatchlistChanges } from "@/lib/types";
 import Link from "next/link";
 
 export function CheckStatus({ changes }: { changes: WatchlistChanges }) {
@@ -25,7 +26,13 @@ export function CheckStatus({ changes }: { changes: WatchlistChanges }) {
   );
 }
 
-export function ChangeList({ changes }: { changes: DetectedChange[] }) {
+export function ChangeList({
+  changes,
+  quotes,
+}: {
+  changes: DetectedChange[];
+  quotes?: { exchange: string; symbol: string; quality: MarketDataQuality }[];
+}) {
   if (changes.length === 0) {
     return null;
   }
@@ -34,6 +41,7 @@ export function ChangeList({ changes }: { changes: DetectedChange[] }) {
       {changes.map((change) => {
         const percent = formatPercent(change.changePercent);
         const direction = change.changePercent == null ? "text-foreground" : change.changePercent < 0 ? "text-negative" : "text-positive";
+        const quote = quotes?.find((item) => item.exchange === change.exchange && item.symbol === change.symbol);
         return (
           <li key={`${change.instrumentId}-${change.type}`} className="surface px-4 py-4 sm:px-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -48,14 +56,15 @@ export function ChangeList({ changes }: { changes: DetectedChange[] }) {
                   {change.currency ? formatMoney(change.currentValue, change.currency) : formatMoney(change.currentValue, null)}
                 </p>
                 {percent ? <p className={`text-sm tabular-nums ${direction}`}>{percent}</p> : null}
+                {quote ? <p className="mt-2"><QualityBadge quality={quote.quality} /></p> : null}
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
               <span className="rounded-full border border-line px-2 py-1 text-foreground">{changeTypeLabel[change.type]}</span>
               <span className={change.severity === "HIGH" ? "text-brass" : "text-muted"}>{severityLabel(change.severity)}</span>
-              <span className="text-muted">{formatTimestamp(change.detectedAt)}</span>
             </div>
             <p className="mt-3 text-sm leading-6 text-foreground">{change.message}</p>
+            <p className="mt-2 text-xs text-muted">Detected {formatTimestamp(change.detectedAt)}</p>
           </li>
         );
       })}

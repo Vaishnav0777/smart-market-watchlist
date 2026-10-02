@@ -1,4 +1,4 @@
-import type { ChangeSeverity, ChangeType } from "@/lib/types";
+import type { ChangeSeverity, ChangeType, MarketDataQuality } from "@/lib/types";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -83,6 +83,21 @@ export const changeTypeLabel: Record<ChangeType, string> = {
 
 export function severityLabel(severity: ChangeSeverity): string {
   return severity === "HIGH" ? "High relevance" : "Notable";
+}
+
+export function qualityLabel(quality: MarketDataQuality): string {
+  switch (quality) {
+    case "REAL_TIME":
+      return "Real-time";
+    case "DELAYED":
+      return "Delayed";
+    case "END_OF_DAY":
+      return "End of day";
+    case "STALE":
+      return "Stale";
+    case "UNKNOWN":
+      return "Unknown";
+  }
 }
 
 function trimNumber(value: number): string {

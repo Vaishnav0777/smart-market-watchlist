@@ -1,6 +1,6 @@
 "use client";
 
-import { ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
+import { ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/components/states";
 import { ApiError } from "@/lib/api/client";
 import { searchInstruments } from "@/lib/api/instruments";
 import { addWatchlistItem, listWatchlists } from "@/lib/api/watchlists";
@@ -102,7 +102,7 @@ function SearchScreen() {
           Results come from the backend instrument directory. The catalog is not stored in the browser.
         </p>
       </header>
-      <SyntheticNotice />
+      <SyntheticNotice quotes={results?.map((listing) => listing.quote) ?? []} />
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem]">
         <label className="grid gap-1 text-sm">
           Symbol or company
@@ -140,6 +140,7 @@ function SearchScreen() {
                 <div className="text-right">
                   <p className="tabular-nums">{formatMoney(listing.quote.price, listing.quote.currency)}</p>
                   <p className={`text-sm tabular-nums ${tone}`}>{formatPercent(move) ?? "—"}</p>
+                  <p className="mt-1"><QualityBadge quality={listing.quote.quality} /></p>
                 </div>
                 <button className="button-primary" type="button" disabled={pendingId === listing.instrument.id} onClick={() => add(listing)}>
                   {pendingId === listing.instrument.id ? "Adding" : "Add"}

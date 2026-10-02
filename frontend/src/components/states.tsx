@@ -1,4 +1,7 @@
 import { ApiError } from "@/lib/api/client";
+import { qualityLabel } from "@/lib/format";
+import type { MarketDataQuality, MarketDataSource } from "@/lib/types";
+import type { ReactNode } from "react";
 
 export function LoadingState({ label = "Loading" }: { label?: string }) {
   return (
@@ -9,11 +12,12 @@ export function LoadingState({ label = "Loading" }: { label?: string }) {
   );
 }
 
-export function EmptyState({ title, body }: { title: string; body: string }) {
+export function EmptyState({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
   return (
     <div className="surface px-5 py-8">
       <h2 className="font-serif text-2xl text-foreground">{title}</h2>
       <p className="mt-2 max-w-xl text-sm leading-6 text-muted">{body}</p>
+      {children}
     </div>
   );
 }
@@ -34,7 +38,23 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   );
 }
 
-export function SyntheticNotice() {
+export function QualityBadge({ quality }: { quality: MarketDataQuality }) {
+  const cautious = quality === "STALE" || quality === "UNKNOWN";
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${
+        cautious ? "border-brass text-brass" : "border-line text-muted"
+      }`}
+    >
+      {qualityLabel(quality)}
+    </span>
+  );
+}
+
+export function SyntheticNotice({ quotes }: { quotes: { source: MarketDataSource }[] }) {
+  if (!quotes.some((quote) => quote.source === "MOCK")) {
+    return null;
+  }
   return (
     <p className="text-xs leading-5 text-muted">
       Prices on this screen are synthetic development fixtures. They are not live or historical market data.

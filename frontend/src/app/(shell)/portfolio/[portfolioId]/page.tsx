@@ -1,6 +1,6 @@
 "use client";
 
-import { ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
+import { ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/components/states";
 import { ApiError } from "@/lib/api/client";
 import { searchInstruments } from "@/lib/api/instruments";
 import { addPosition, getPortfolio, removePosition, updatePosition } from "@/lib/api/portfolios";
@@ -133,7 +133,7 @@ export default function PortfolioDetailPage() {
           {portfolio.positions.length} {portfolio.positions.length === 1 ? "position" : "positions"}
         </p>
       </header>
-      <SyntheticNotice />
+      <SyntheticNotice quotes={portfolio.positions.flatMap((position) => position.quote ? [position.quote] : [])} />
       {actionError ? <p className="text-sm text-negative" role="alert">{actionError}</p> : null}
 
       <form className="surface grid gap-3 px-4 py-4" onSubmit={onAdd}>
@@ -262,7 +262,10 @@ function PositionRow({
       <td className="px-3 py-3 tabular-nums">
         {editing ? <input className="field" value={editPrice} onChange={(event) => onEditPrice(event.target.value)} /> : formatMoney(position.averageBuyPrice, currency)}
       </td>
-      <td className="px-3 py-3 tabular-nums">{position.quote ? formatMoney(position.quote.price, currency) : "No quote"}</td>
+      <td className="px-3 py-3 tabular-nums">
+        {position.quote ? formatMoney(position.quote.price, currency) : "No quote"}
+        {position.quote ? <p className="mt-1"><QualityBadge quality={position.quote.quality} /></p> : null}
+      </td>
       <td className="px-3 py-3 tabular-nums">{formatMoney(invested, currency)}</td>
       <td className="px-3 py-3 tabular-nums">{formatMoney(current, currency)}</td>
       <td className={`px-3 py-3 tabular-nums ${tone}`}>
