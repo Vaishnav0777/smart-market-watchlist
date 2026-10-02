@@ -273,27 +273,30 @@ function AnalyticsSummary({ analytics }: { analytics: PortfolioAnalytics }) {
           <PerformerCard title="Best-performing holding" holding={analytics.best} />
           <PerformerCard title="Worst-performing holding" holding={analytics.worst} />
         </div>
+        <PnlByHolding analytics={analytics} />
       </section>
       <section className="grid gap-4">
         <h2 className="font-serif text-2xl">Allocation</h2>
         <div className="grid gap-4 lg:grid-cols-2">
           <AllocationList
-            title="Largest holdings"
+            title="Holding allocation"
             empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
             rows={largest.map((slice) => ({
               key: slice.instrumentId,
-              label: `${slice.symbol} · ${slice.exchange}`,
+              label: slice.symbol,
+              detail: slice.exchange,
               invested: slice.invested,
               percentage: slice.percentage,
             }))}
             currency={currency}
           />
           <AllocationList
-            title="Sectors"
+            title="Sector allocation"
             empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
             rows={analytics.sectorAllocations.map((slice) => ({
               key: slice.sector,
               label: slice.sector,
+              detail: null,
               invested: slice.invested,
               percentage: slice.percentage,
             }))}
@@ -347,27 +350,88 @@ function AllocationList({
 }: {
   title: string;
   empty: string;
-  rows: { key: string; label: string; invested: number; percentage: number }[];
+  rows: { key: string; label: string; detail: string | null; invested: number; percentage: number }[];
   currency: string | null;
 }) {
   return (
-    <div>
+    <div className="surface px-4 py-4">
       <h3 className="font-serif text-xl">{title}</h3>
       {rows.length === 0 ? (
         <p className="mt-2 text-sm text-muted">{empty}</p>
       ) : (
-        <ul className="mt-2 grid gap-3">
+        <ul className="mt-3 grid gap-3">
           {rows.map((row) => (
             <li key={row.key} className="grid gap-1 text-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <span className="text-foreground">{row.label}</span>
+                <span className="text-foreground">
+                  {row.label}
+                  {row.detail ? <span className="text-muted"> · {row.detail}</span> : null}
+                </span>
                 <span className="tabular-nums text-muted">
-                  {formatMoney(row.invested, currency)} · {shareLabel(row.percentage)}
+                  {shareLabel(row.percentage)} · {formatMoney(row.invested, currency)}
                 </span>
               </div>
-              <span className="block h-1.5 overflow-hidden rounded-full bg-line">
+              <span className="block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden="true">
                 <span className="block h-full rounded-full bg-brass" style={{ width: `${barWidth(row.percentage)}%` }} />
               </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function PnlByHolding({ analytics }: { analytics: PortfolioAnalytics }) {
+  if (analytics.mixedCurrencies) {
+    return (
+      <div className="surface px-4 py-4">
+        <h3 className="font-serif text-xl">P&L by holding</h3>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Holdings use more than one currency, so their P&L is not drawn on one scale.
+        </p>
+      </div>
+    );
+  }
+  const ranked = [...analytics.holdings].sort((left, right) => {
+    if (left.pnl == null && right.pnl == null) {
+      return left.symbol.localeCompare(right.symbol);
+    }
+    if (left.pnl == null) {
+      return 1;
+    }
+    if (right.pnl == null) {
+      return -1;
+    }
+    return right.pnl - left.pnl || left.symbol.localeCompare(right.symbol);
+  });
+  const scale = ranked.reduce((max, holding) => holding.pnl == null ? max : Math.max(max, Math.abs(holding.pnl)), 0);
+  return (
+    <div className="surface px-4 py-4">
+      <h3 className="font-serif text-xl">P&L by holding</h3>
+      {ranked.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">No holdings to compare.</p>
+      ) : (
+        <ul className="mt-3 grid gap-3">
+          {ranked.map((holding) => (
+            <li key={holding.instrumentId} className="grid gap-1 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <span className="text-foreground">{holding.symbol}</span>
+                <span className={`tabular-nums ${moneyTone(holding.pnl)}`}>
+                  {formatMoney(holding.pnl, holding.currency)}
+                  <span className="text-muted"> · {formatPercent(holding.returnPercent) ?? "Return unavailable"}</span>
+                </span>
+              </div>
+              {holding.pnl == null ? (
+                <p className="text-xs text-muted">No quote, so this P&L is not shown as a bar.</p>
+              ) : (
+                <span className="block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden="true">
+                  <span
+                    className={`block h-full rounded-full ${holding.pnl < 0 ? "bg-negative" : "bg-positive"}`}
+                    style={{ width: `${pnlWidth(holding.pnl, scale)}%` }}
+                  />
+                </span>
+              )}
             </li>
           ))}
         </ul>
@@ -389,6 +453,13 @@ function barWidth(percentage: number): number {
     return 0;
   }
   return Math.min(percentage, 100);
+}
+
+function pnlWidth(pnl: number, scale: number): number {
+  if (scale <= 0 || !Number.isFinite(pnl)) {
+    return 0;
+  }
+  return Math.min(100, (Math.abs(pnl) / scale) * 100);
 }
 
 function moneyTone(value: number | null): string {
