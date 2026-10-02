@@ -7,13 +7,15 @@ import { useState } from "react";
 
 const examples = [
   "Which investment has performed best?",
-  "What is my total P&L?",
+  "Which investment has performed worst?",
+  "What is my portfolio's total value?",
+  "What is my total invested amount?",
+  "What is my unrealized P&L?",
   "How is my portfolio distributed across sectors?",
-  "What changed since I last checked?",
+  "Which holdings have the largest allocation?",
+  "What changed recently in my watchlists?",
   "How many holdings do I have?",
-  "What is my current portfolio value?",
-  "Which holdings are unvalued?",
-  "Which investments are currently losing money?",
+  "What is the current value of RELIANCE?",
 ];
 
 const sourceLabel: Record<AssistantSource, string> = {

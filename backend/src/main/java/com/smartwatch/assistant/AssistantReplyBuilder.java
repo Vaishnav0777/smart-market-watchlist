@@ -3,7 +3,9 @@ package com.smartwatch.assistant;
 import com.smartwatch.assistant.dto.AssistantAnswerResponse;
 import com.smartwatch.change.ChangeType;
 import com.smartwatch.marketdata.model.MarketDataQuality;
+import com.smartwatch.marketdata.model.MarketDataSource;
 import com.smartwatch.portfolio.dto.HoldingAnalyticsResponse;
+import com.smartwatch.portfolio.dto.InstrumentAllocationResponse;
 import com.smartwatch.portfolio.dto.PortfolioAnalyticsResponse;
 import com.smartwatch.portfolio.dto.SectorAllocationResponse;
 import com.smartwatch.watchlist.dto.ChangeResponse;
@@ -11,8 +13,11 @@ import com.smartwatch.watchlist.dto.WatchlistChangesResponse;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Deterministic answers from analytics and change responses already calculated
@@ -23,7 +28,12 @@ public final class AssistantReplyBuilder {
 
     static final String REFUSAL = "I can report your stored portfolio and watchlist data, but I don't predict prices or recommend buying or selling securities.";
 
-    private static final String UNSUPPORTED = "V1 can answer questions about your stored portfolio and watchlist data, such as performance, profit and loss, current value, how many holdings you have, which holdings are losing money, return, sectors, unvalued holdings, and changes since your last check.";
+    private static final String UNSUPPORTED = "V1 can answer questions about your stored portfolio and watchlist data, such as performance, profit and loss, invested amount, current value, a holding's value, allocation, how many holdings you have, which holdings are losing money, return, sectors, unvalued holdings, and changes since your last check.";
+    private static final Set<String> STOP_WORDS = Set.of(
+            "a", "an", "the", "my", "of", "in", "me", "i", "is", "what", "which", "how", "much", "have",
+            "portfolio", "total", "current", "holding", "holdings", "value", "worth", "invested", "amount",
+            "unrealized", "profit", "and", "loss", "this", "that", "has", "do", "not", "to", "for", "s",
+            "on", "at", "by", "from", "with", "your", "you", "are", "it", "its");
     private static final int MESSAGE_LIMIT = 240;
 
     private AssistantReplyBuilder() {
@@ -36,8 +46,12 @@ public final class AssistantReplyBuilder {
             case BEST -> performers(context, true);
             case WORST -> performers(context, false);
             case BOTH -> bothPerformers(context);
-            case PNL -> pnl(context);
+            case PNL -> pnl(context, false);
+            case UNREALIZED -> pnl(context, true);
             case VALUE -> currentValue(context);
+            case INVESTED -> invested(context);
+            case ALLOCATION -> allocation(context);
+            case HOLDING_VALUE -> holdingValue(question, context);
             case COUNT -> holdingCount(context);
             case LOSING -> losing(context);
             case RETURN -> returns(context);
@@ -54,7 +68,7 @@ public final class AssistantReplyBuilder {
         if (refused(lower)) {
             return Intent.REFUSAL;
         }
-        String text = lower.replaceAll("[^a-z0-9&\\s]", " ").replaceAll("\\s+", " ").trim();
+        String text = normalize(question);
         boolean best = containsAny(text, "performed best", "best performing", "doing best", "best investment", "best holding", "best performer");
         boolean worst = containsAny(text, "performed worst", "worst performing", "doing worst", "worst investment", "worst holding", "worst performer");
         if (best && worst) {
@@ -81,7 +95,19 @@ public final class AssistantReplyBuilder {
         if (best) {
             return Intent.BEST;
         }
-        if (containsAny(text, "current value", "portfolio value", "portfolio worth")) {
+        if (requestedSymbol(text) != null && (text.contains("value") || text.contains("worth"))) {
+            return Intent.HOLDING_VALUE;
+        }
+        if (containsAny(text, "invested amount", "total invested", "have i invested", "i invested")) {
+            return Intent.INVESTED;
+        }
+        if (text.contains("unrealized")) {
+            return Intent.UNREALIZED;
+        }
+        if (containsAny(text, "largest allocation", "largest holding")) {
+            return Intent.ALLOCATION;
+        }
+        if (containsAny(text, "current value", "portfolio value", "portfolio worth", "total value")) {
             return Intent.VALUE;
         }
         if (containsAny(text, "p&l", "pnl", "profit and loss", "profit", "how much have i made", "up or down")) {
@@ -207,12 +233,12 @@ public final class AssistantReplyBuilder {
         return analytics(answer.toString().trim());
     }
 
-    private static AssistantAnswerResponse pnl(AssistantContext context) {
+    private static AssistantAnswerResponse pnl(AssistantContext context, boolean unrealized) {
         if (context.portfolios().isEmpty()) {
             return analytics(noPortfolios());
         }
         if (incompatible(context.portfolios())) {
-            return analytics(uncombined(context.portfolios(), "P&L"));
+            return analytics(uncombined(context.portfolios(), unrealized ? "unrealized P&L" : "P&L", unrealized));
         }
         StringBuilder answer = new StringBuilder();
         if (context.portfolios().size() > 1) {
@@ -223,7 +249,60 @@ public final class AssistantReplyBuilder {
                     .append(". ");
         }
         for (AssistantContext.PortfolioSnapshot portfolio : context.portfolios()) {
-            answer.append(pnlSentence(portfolio)).append(' ');
+            answer.append(pnlSentence(portfolio, unrealized)).append(' ');
+        }
+        return analytics(answer.toString().trim());
+    }
+
+    private static AssistantAnswerResponse invested(AssistantContext context) {
+        if (context.portfolios().isEmpty()) {
+            return analytics(noPortfolios());
+        }
+        if (incompatible(context.portfolios())) {
+            return analytics(uncombinedInvested(context.portfolios()));
+        }
+        StringBuilder answer = new StringBuilder();
+        if (context.portfolios().size() > 1) {
+            answer.append("Invested amount is reported separately for each portfolio. ");
+        }
+        for (AssistantContext.PortfolioSnapshot portfolio : context.portfolios()) {
+            answer.append(investedSentence(portfolio)).append(' ');
+        }
+        return analytics(answer.toString().trim());
+    }
+
+    private static AssistantAnswerResponse allocation(AssistantContext context) {
+        if (context.portfolios().isEmpty()) {
+            return analytics(noPortfolios());
+        }
+        StringBuilder answer = new StringBuilder();
+        for (AssistantContext.PortfolioSnapshot portfolio : context.portfolios()) {
+            answer.append(allocationSentence(portfolio)).append(' ');
+        }
+        return analytics(answer.toString().trim());
+    }
+
+    private static AssistantAnswerResponse holdingValue(String question, AssistantContext context) {
+        if (context.portfolios().isEmpty()) {
+            return analytics(noPortfolios());
+        }
+        String symbol = requestedSymbol(normalize(question));
+        if (symbol == null) {
+            return new AssistantAnswerResponse(UNSUPPORTED, false, List.of());
+        }
+        StringBuilder answer = new StringBuilder();
+        boolean found = false;
+        for (AssistantContext.PortfolioSnapshot portfolio : context.portfolios()) {
+            for (HoldingAnalyticsResponse holding : portfolio.analytics().holdings()) {
+                if (!symbol.equalsIgnoreCase(holding.symbol())) {
+                    continue;
+                }
+                found = true;
+                answer.append(holdingValueSentence(portfolio.name(), holding)).append(' ');
+            }
+        }
+        if (!found) {
+            return analytics("You do not currently have " + symbol + ".");
         }
         return analytics(answer.toString().trim());
     }
@@ -338,7 +417,7 @@ public final class AssistantReplyBuilder {
                     + (analytics.unvaluedPositions() == 1 ? "is" : "are")
                     + " not included in that value.";
         }
-        return sentence;
+        return sentence + quoteNote(analytics.holdings());
     }
 
     private static String losingSentence(AssistantContext.PortfolioSnapshot portfolio) {
@@ -373,12 +452,91 @@ public final class AssistantReplyBuilder {
         return answer.toString().trim();
     }
 
-    private static String pnlSentence(AssistantContext.PortfolioSnapshot portfolio) {
+    private static String investedSentence(AssistantContext.PortfolioSnapshot portfolio) {
+        PortfolioAnalyticsResponse analytics = portfolio.analytics();
+        if (analytics.mixedCurrencies() || analytics.totalInvested() == null) {
+            return portfolio.name() + " uses more than one currency, so amounts in different currencies are not combined.";
+        }
+        return "The total invested amount for " + portfolio.name() + " is " + money(analytics.totalInvested(), analytics.currency()) + ".";
+    }
+
+    private static String uncombinedInvested(List<AssistantContext.PortfolioSnapshot> portfolios) {
+        StringBuilder answer = new StringBuilder();
+        answer.append("These portfolios are not combined into one invested amount because their currencies differ. ");
+        for (AssistantContext.PortfolioSnapshot portfolio : portfolios) {
+            answer.append(investedSentence(portfolio)).append(' ');
+        }
+        return answer.toString().trim();
+    }
+
+    private static String allocationSentence(AssistantContext.PortfolioSnapshot portfolio) {
+        PortfolioAnalyticsResponse analytics = portfolio.analytics();
+        if (analytics.mixedCurrencies()) {
+            return portfolio.name() + " uses more than one currency, so allocation is not combined.";
+        }
+        List<InstrumentAllocationResponse> largest = largestAllocations(analytics.instrumentAllocations());
+        if (largest.isEmpty()) {
+            return "Allocation for " + portfolio.name() + " cannot currently be determined.";
+        }
+        String percentage = percent(largest.get(0).percentage());
+        if (largest.size() == 1) {
+            return largest.get(0).symbol() + " in " + portfolio.name() + " has the largest allocation at " + percentage + ".";
+        }
+        StringBuilder sentence = new StringBuilder();
+        for (int index = 0; index < largest.size(); index++) {
+            if (index > 0) {
+                sentence.append(index == largest.size() - 1 ? " and " : ", ");
+            }
+            sentence.append(largest.get(index).symbol());
+        }
+        sentence.append(" in ").append(portfolio.name()).append(" share the largest allocation at ").append(percentage).append('.');
+        return sentence.toString();
+    }
+
+    private static List<InstrumentAllocationResponse> largestAllocations(List<InstrumentAllocationResponse> allocations) {
+        BigDecimal highest = null;
+        for (InstrumentAllocationResponse allocation : allocations) {
+            if (allocation.percentage() == null) {
+                continue;
+            }
+            if (highest == null || allocation.percentage().compareTo(highest) > 0) {
+                highest = allocation.percentage();
+            }
+        }
+        if (highest == null) {
+            return List.of();
+        }
+        List<InstrumentAllocationResponse> chosen = new ArrayList<>();
+        for (InstrumentAllocationResponse allocation : allocations) {
+            if (allocation.percentage() != null && allocation.percentage().compareTo(highest) == 0) {
+                chosen.add(allocation);
+            }
+        }
+        chosen.sort(Comparator.comparing(InstrumentAllocationResponse::symbol));
+        return chosen;
+    }
+
+    private static String holdingValueSentence(String portfolioName, HoldingAnalyticsResponse holding) {
+        if (holding.currentValue() == null) {
+            return "The current value of " + holding.symbol() + " in " + portfolioName
+                    + " cannot be determined because there is no current quote.";
+        }
+        return "The current value of " + holding.symbol() + " in " + portfolioName + " is "
+                + money(holding.currentValue(), holding.currency()) + "."
+                + quoteNote(List.of(holding));
+    }
+
+    private static String pnlSentence(AssistantContext.PortfolioSnapshot portfolio, boolean unrealized) {
         PortfolioAnalyticsResponse analytics = portfolio.analytics();
         if (analytics.mixedCurrencies() || analytics.totalPnl() == null) {
             return portfolio.name() + " uses more than one currency, so its P&L is not combined.";
         }
-        return "The total P&L for " + portfolio.name() + " is " + money(analytics.totalPnl(), analytics.currency()) + ".";
+        String label = unrealized ? "The unrealized P&L for " : "The total P&L for ";
+        String sentence = label + portfolio.name() + " is " + money(analytics.totalPnl(), analytics.currency()) + ".";
+        if (unrealized) {
+            sentence += " This is the mark-to-market difference between the stored invested cost and the current value of valued holdings.";
+        }
+        return sentence + quoteNote(analytics.holdings());
     }
 
     private static String returnSentence(AssistantContext.PortfolioSnapshot portfolio) {
@@ -501,13 +659,13 @@ public final class AssistantReplyBuilder {
         return sentence.toString().trim();
     }
 
-    private static String uncombined(List<AssistantContext.PortfolioSnapshot> portfolios, String figure) {
+    private static String uncombined(List<AssistantContext.PortfolioSnapshot> portfolios, String figure, boolean unrealized) {
         StringBuilder answer = new StringBuilder();
         answer.append("These portfolios are not combined into one ")
                 .append(figure)
                 .append(" because their currencies differ. Choose one portfolio for a single total. ");
         for (AssistantContext.PortfolioSnapshot portfolio : portfolios) {
-            answer.append(pnlSentence(portfolio)).append(' ');
+            answer.append(pnlSentence(portfolio, unrealized)).append(' ');
         }
         return answer.toString().trim();
     }
@@ -547,6 +705,121 @@ public final class AssistantReplyBuilder {
             }
         }
         return total.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private static String normalize(String question) {
+        return question.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9&\\s]", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    private static String requestedSymbol(String text) {
+        String[] tokens = text.split(" ");
+        for (int index = 0; index < tokens.length; index++) {
+            if (tokens[index].equals("value") || tokens[index].equals("worth")) {
+                String symbol = symbolAfterOf(tokens, index);
+                if (symbol != null) {
+                    return symbol;
+                }
+            }
+            if (tokens[index].equals("worth") && index > 0 && ticker(tokens[index - 1])) {
+                return tokens[index - 1].toUpperCase(Locale.ROOT);
+            }
+            if (tokens[index].equals("holding")
+                    && index > 0
+                    && ticker(tokens[index - 1])
+                    && (text.contains("value") || text.contains("worth"))) {
+                return tokens[index - 1].toUpperCase(Locale.ROOT);
+            }
+        }
+        return null;
+    }
+
+    private static String symbolAfterOf(String[] tokens, int keyword) {
+        if (keyword + 1 >= tokens.length || !tokens[keyword + 1].equals("of")) {
+            return null;
+        }
+        int index = keyword + 2;
+        if (index < tokens.length && tokens[index].equals("my")) {
+            index++;
+        }
+        if (index < tokens.length && ticker(tokens[index])) {
+            return tokens[index].toUpperCase(Locale.ROOT);
+        }
+        return null;
+    }
+
+    private static boolean ticker(String token) {
+        if (token.isEmpty() || token.length() > 32 || STOP_WORDS.contains(token)) {
+            return false;
+        }
+        for (int index = 0; index < token.length(); index++) {
+            char character = token.charAt(index);
+            if ((character < 'a' || character > 'z') && (character < '0' || character > '9')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String quoteNote(List<HoldingAnalyticsResponse> holdings) {
+        List<HoldingAnalyticsResponse> valued = new ArrayList<>();
+        for (HoldingAnalyticsResponse holding : holdings) {
+            if (holding.currentValue() != null) {
+                valued.add(holding);
+            }
+        }
+        if (valued.isEmpty()) {
+            return "";
+        }
+        MarketDataQuality quality = sharedQuality(valued);
+        MarketDataSource source = sharedSource(valued);
+        String qualityText = quality == null
+                ? " Quote quality is not the same for every valued holding, so this is not described as real-time."
+                : valueQualitySentence(quality);
+        String sourceText = source == null
+                ? " Quotes come from more than one source."
+                : sourceSentence(source);
+        return qualityText + sourceText;
+    }
+
+    private static MarketDataQuality sharedQuality(List<HoldingAnalyticsResponse> valued) {
+        MarketDataQuality quality = valued.get(0).quality();
+        for (HoldingAnalyticsResponse holding : valued) {
+            if (holding.quality() != quality) {
+                return null;
+            }
+        }
+        return quality;
+    }
+
+    private static MarketDataSource sharedSource(List<HoldingAnalyticsResponse> valued) {
+        MarketDataSource source = valued.get(0).source();
+        for (HoldingAnalyticsResponse holding : valued) {
+            if (holding.source() != source) {
+                return null;
+            }
+        }
+        return source;
+    }
+
+    private static String valueQualitySentence(MarketDataQuality quality) {
+        return switch (quality) {
+            case REAL_TIME -> " The quote is real-time.";
+            case DELAYED -> " The quote is delayed, not real-time.";
+            case END_OF_DAY -> " The value uses end-of-day data, not real-time.";
+            case STALE -> " The quote is stale, not real-time.";
+            case UNKNOWN -> " Quote freshness is unknown, not real-time.";
+        };
+    }
+
+    private static String sourceSentence(MarketDataSource source) {
+        if (source == null) {
+            return " The quote source was not provided.";
+        }
+        return switch (source) {
+            case MOCK -> " The quote source is synthetic/mock market data.";
+            case UPSTOX -> " The quote source is Upstox market data.";
+            case OTHER -> " The quote source is another market-data provider.";
+        };
     }
 
     private static String qualitySentence(MarketDataQuality quality) {
@@ -623,7 +896,11 @@ public final class AssistantReplyBuilder {
         WORST,
         BOTH,
         PNL,
+        UNREALIZED,
         VALUE,
+        INVESTED,
+        ALLOCATION,
+        HOLDING_VALUE,
         COUNT,
         LOSING,
         RETURN,
