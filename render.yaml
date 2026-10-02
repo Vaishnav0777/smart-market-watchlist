@@ -10,7 +10,6 @@ services:
     branch: main
     region: singapore
     plan: free
-    rootDir: backend
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /api/v1/health
