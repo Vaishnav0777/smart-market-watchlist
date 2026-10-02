@@ -192,6 +192,70 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Sign in, then use the dashboard. With `NEXT_PUBLIC_API_BASE_URL` empty, the browser calls `/api` on the Next.js server, which proxies to `API_PROXY_TARGET`.
 
+## Production deployment
+
+PostgreSQL is the only required persistent service. The backend and the frontend are two separate processes. Redis is not used. Leave `UPSTOX_ENABLED=false`. Prices stay on the synthetic mock until an Upstox application is approved. Do not commit `.env` files, database passwords, `JWT_SECRET`, or an Upstox token.
+
+Set these for the backend. `backend/.env.example` lists placeholders.
+
+| Variable | Required | Production note |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | JDBC URL of the PostgreSQL instance |
+| `DATABASE_USERNAME` | Yes | Database user |
+| `DATABASE_PASSWORD` | Yes | Database password |
+| `JWT_SECRET` | Yes | At least 32 bytes. Generate a new value. Do not reuse the example |
+| `COOKIE_SECURE` | Yes on HTTPS | `true` when the site is served over HTTPS |
+| `CORS_ALLOWED_ORIGINS` | Yes | Frontend origin. The Next.js rewrite forwards the browser `Origin`, so this must match the site even when the browser calls `/api` on the frontend |
+| `UPSTOX_ENABLED` | Yes | `false` for this deployment |
+| `UPSTOX_ACCESS_TOKEN` | No | Leave empty while Upstox is disabled |
+
+Set these for the frontend before `npm run build` or the image build. `API_PROXY_TARGET` is read then and is not sent to the browser.
+
+| Variable | Required | Production note |
+| --- | --- | --- |
+| `API_PROXY_TARGET` | Yes | Backend origin, for example `http://api:8080` |
+| `NEXT_PUBLIC_API_BASE_URL` | No | Leave empty so the browser calls this frontend at `/api` and the refresh cookie stays on that origin |
+
+Build and run the API:
+
+```bash
+docker build -t smartwatch-api backend
+docker run --rm -p 8080:8080 \
+  -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/smartwatch \
+  -e DATABASE_USERNAME=smartwatch \
+  -e DATABASE_PASSWORD=change-me \
+  -e JWT_SECRET=replace-with-at-least-32-bytes-of-random-data \
+  -e COOKIE_SECURE=false \
+  -e CORS_ALLOWED_ORIGINS=http://localhost:3000 \
+  -e UPSTOX_ENABLED=false \
+  smartwatch-api
+```
+
+Use `COOKIE_SECURE=true` and the real frontend origin when the site is served over HTTPS.
+
+Build and run the frontend. Replace the proxy target with a URL the image can reach at build time:
+
+```bash
+docker build -t smartwatch-web --build-arg API_PROXY_TARGET=http://host.docker.internal:8080 frontend
+docker run --rm -p 3000:3000 smartwatch-web
+```
+
+Without Docker, from the repository after exporting the same variables:
+
+```bash
+cd backend && ./mvnw -DskipTests package && java -jar target/smartwatch-*.jar
+cd frontend && npm ci && npm run build && npm run start
+```
+
+### Production verification
+
+- Register an account and sign in.
+- Create a watchlist, open it, and run a meaningful-change check.
+- Create a portfolio, add a holding, and open its analytics.
+- Ask the assistant a stored-data question, such as total value, and a buy or prediction question, which must be declined.
+- Sign out and confirm a personal page requires sign-in again.
+- Sign in as a second user and confirm that user's portfolio id returns not found.
+
 ## Tests
 
 Backend, from `backend/` (Docker must be running for Testcontainers):
