@@ -101,8 +101,8 @@ public final class PortfolioAnalytics {
                 unvalued,
                 best,
                 worst,
-                sectorAllocations(rows, totalInvested),
-                instrumentAllocations(rows, totalInvested),
+                sectorAllocations(valued, currentValue),
+                instrumentAllocations(valued, currentValue),
                 holdings);
     }
 
@@ -113,36 +113,36 @@ public final class PortfolioAnalytics {
         return valued.stream().min(order).map(Row::toResponse).orElse(null);
     }
 
-    private static List<SectorAllocationResponse> sectorAllocations(List<Row> rows, BigDecimal totalInvested) {
-        if (totalInvested.signum() == 0) {
+    private static List<SectorAllocationResponse> sectorAllocations(List<Row> valued, BigDecimal totalCurrentValue) {
+        if (totalCurrentValue.signum() == 0) {
             return List.of();
         }
-        Map<String, BigDecimal> investedBySector = new LinkedHashMap<>();
-        for (Row row : rows) {
-            investedBySector.merge(row.sector, row.invested, BigDecimal::add);
+        Map<String, BigDecimal> valueBySector = new LinkedHashMap<>();
+        for (Row row : valued) {
+            valueBySector.merge(row.sector, row.currentValue, BigDecimal::add);
         }
-        return investedBySector.entrySet().stream()
+        return valueBySector.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> new SectorAllocationResponse(
                         entry.getKey(),
                         entry.getValue().setScale(MONEY_SCALE, RoundingMode.HALF_UP),
-                        percent(entry.getValue(), totalInvested)))
+                        percent(entry.getValue(), totalCurrentValue)))
                 .toList();
     }
 
-    private static List<InstrumentAllocationResponse> instrumentAllocations(List<Row> rows, BigDecimal totalInvested) {
-        if (totalInvested.signum() == 0) {
+    private static List<InstrumentAllocationResponse> instrumentAllocations(List<Row> valued, BigDecimal totalCurrentValue) {
+        if (totalCurrentValue.signum() == 0) {
             return List.of();
         }
-        return rows.stream()
+        return valued.stream()
                 .sorted(Comparator.comparing(Row::symbol).thenComparing(Row::exchange))
                 .map(row -> new InstrumentAllocationResponse(
                         row.instrumentId,
                         row.symbol,
                         row.exchange,
                         row.sector,
-                        row.invested,
-                        percent(row.invested, totalInvested)))
+                        row.currentValue,
+                        percent(row.currentValue, totalCurrentValue)))
                 .toList();
     }
 

@@ -87,8 +87,10 @@ class PortfolioAnalyticsIntegrationTest extends PostgresIntegrationTest {
                 .andExpect(jsonPath("$.best.source").value("MOCK"))
                 .andExpect(jsonPath("$.worst.symbol").value("RELIANCE"))
                 .andExpect(jsonPath("$.sectorAllocations[0].sector").value("Energy"))
+                .andExpect(jsonPath("$.sectorAllocations[0].currentValue").value(25000.0000))
                 .andExpect(jsonPath("$.sectorAllocations[0].percentage").value(100.00))
                 .andExpect(jsonPath("$.instrumentAllocations[0].symbol").value("RELIANCE"))
+                .andExpect(jsonPath("$.instrumentAllocations[0].currentValue").value(25000.0000))
                 .andExpect(jsonPath("$.instrumentAllocations[0].percentage").value(100.00));
 
         mockMvc.perform(get("/api/v1/portfolios/" + portfolio.getId() + "/analytics")

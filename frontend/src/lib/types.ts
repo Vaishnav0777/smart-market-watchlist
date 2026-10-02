@@ -198,7 +198,7 @@ export type HoldingAnalytics = {
 
 export type SectorAllocation = {
   sector: string;
-  invested: number;
+  currentValue: number;
   percentage: number;
 };
 
@@ -207,7 +207,7 @@ export type InstrumentAllocation = {
   symbol: string;
   exchange: string;
   sector: string;
-  invested: number;
+  currentValue: number;
   percentage: number;
 };
 

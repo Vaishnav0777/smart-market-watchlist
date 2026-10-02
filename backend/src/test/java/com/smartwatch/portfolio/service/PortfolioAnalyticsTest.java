@@ -48,7 +48,7 @@ class PortfolioAnalyticsTest {
     }
 
     @Test
-    void keepsAMissingQuoteInInvestedAndAllocationOnly() {
+    void keepsAMissingQuoteInInvestedTotalsOnly() {
         PortfolioAnalyticsResponse result = PortfolioAnalytics.calculate(PORTFOLIO_ID, List.of(
                 position("RELIANCE", "Energy", "10", "2000", quote("2500", "INR", MarketDataQuality.REAL_TIME)),
                 position("INFY", "Technology", "2", "1000", null)));
@@ -72,11 +72,16 @@ class PortfolioAnalyticsTest {
                     assertThat(holding.quality()).isNull();
                 });
         assertThat(result.sectorAllocations()).extracting(SectorAllocationResponse::sector)
-                .containsExactly("Energy", "Technology");
-        assertThat(percentage(result, "Energy")).isEqualTo(new BigDecimal("90.91"));
-        assertThat(percentage(result, "Technology")).isEqualTo(new BigDecimal("9.09"));
+                .containsExactly("Energy");
+        assertThat(percentage(result, "Energy")).isEqualTo(new BigDecimal("100.00"));
+        assertThat(result.sectorAllocations()).singleElement()
+                .extracting(SectorAllocationResponse::currentValue)
+                .isEqualTo(new BigDecimal("25000.0000"));
         assertThat(result.instrumentAllocations()).extracting(InstrumentAllocationResponse::symbol)
-                .containsExactly("INFY", "RELIANCE");
+                .containsExactly("RELIANCE");
+        assertThat(result.instrumentAllocations()).singleElement()
+                .extracting(InstrumentAllocationResponse::currentValue)
+                .isEqualTo(new BigDecimal("25000.0000"));
     }
 
     @Test
@@ -154,29 +159,66 @@ class PortfolioAnalyticsTest {
     }
 
     @Test
-    void groupsSectorAndInstrumentAllocationFromInvestedAmount() {
-        UUID reliance = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
-        UUID tcs = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
-        UUID infy = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3");
+    void allocatesASingleHoldingAtOneHundredPercentOfCurrentValue() {
         PortfolioAnalyticsResponse result = PortfolioAnalytics.calculate(PORTFOLIO_ID, List.of(
-                position(reliance, "RELIANCE", "Energy", "1", "1", quote("2", "INR", MarketDataQuality.REAL_TIME)),
-                position(tcs, "TCS", "Technology", "1", "1", quote("2", "INR", MarketDataQuality.REAL_TIME)),
-                position(infy, "INFY", "Technology", "1", "1", null)));
+                position("RELIANCE", "Energy", "10", "2000", quote("2500", "INR", MarketDataQuality.REAL_TIME))));
 
-        assertThat(result.sectorAllocations()).extracting(SectorAllocationResponse::sector)
-                .containsExactly("Energy", "Technology");
-        assertThat(percentage(result, "Energy")).isEqualTo(new BigDecimal("33.33"));
-        assertThat(percentage(result, "Technology")).isEqualTo(new BigDecimal("66.67"));
-        assertThat(share(result.sectorAllocations())).isCloseTo(new BigDecimal("100.00"), within(new BigDecimal("0.02")));
+        assertThat(result.totalInvested()).isEqualTo(new BigDecimal("20000.0000"));
+        assertThat(result.currentValue()).isEqualTo(new BigDecimal("25000.0000"));
+        assertThat(result.totalPnl()).isEqualTo(new BigDecimal("5000.0000"));
+        assertThat(result.returnPercent()).isEqualTo(new BigDecimal("25.00"));
+        assertThat(result.instrumentAllocations()).singleElement().satisfies(slice -> {
+            assertThat(slice.symbol()).isEqualTo("RELIANCE");
+            assertThat(slice.percentage()).isEqualTo(new BigDecimal("100.00"));
+            assertThat(slice.currentValue()).isEqualTo(new BigDecimal("25000.0000"));
+        });
+        assertThat(result.sectorAllocations()).singleElement().satisfies(slice -> {
+            assertThat(slice.sector()).isEqualTo("Energy");
+            assertThat(slice.percentage()).isEqualTo(new BigDecimal("100.00"));
+            assertThat(slice.currentValue()).isEqualTo(new BigDecimal("25000.0000"));
+        });
+    }
 
-        assertThat(result.instrumentAllocations()).extracting(InstrumentAllocationResponse::instrumentId)
-                .containsExactly(infy, reliance, tcs);
-        assertThat(result.instrumentAllocations()).allSatisfy(slice ->
-                assertThat(slice.percentage()).isEqualTo(new BigDecimal("33.33")));
+    @Test
+    void allocatesHoldingsAndSectorsByCurrentMarketValue() {
+        PortfolioAnalyticsResponse result = PortfolioAnalytics.calculate(PORTFOLIO_ID, List.of(
+                position("RELIANCE", "Energy", "10", "2000", quote("2500", "INR", MarketDataQuality.REAL_TIME)),
+                position("TCS", "Technology", "1", "18000", quote("20002.50", "INR", MarketDataQuality.REAL_TIME)),
+                position("INFY", "Technology", "1", "12000", quote("14402", "INR", MarketDataQuality.REAL_TIME))));
+
+        assertThat(result.totalInvested()).isEqualTo(new BigDecimal("50000.0000"));
+        assertThat(result.currentValue()).isEqualTo(new BigDecimal("59404.5000"));
+        assertThat(result.best().symbol()).isEqualTo("RELIANCE");
+        assertThat(result.best().returnPercent()).isEqualTo(new BigDecimal("25.00"));
+        assertThat(result.worst().symbol()).isEqualTo("TCS");
+        assertThat(result.worst().returnPercent()).isEqualTo(new BigDecimal("11.13"));
+
+        assertThat(allocation(result, "RELIANCE").percentage()).isEqualTo(new BigDecimal("42.08"));
+        assertThat(allocation(result, "RELIANCE").currentValue()).isEqualTo(new BigDecimal("25000.0000"));
+        assertThat(allocation(result, "TCS").percentage()).isEqualTo(new BigDecimal("33.67"));
+        assertThat(allocation(result, "TCS").currentValue()).isEqualTo(new BigDecimal("20002.5000"));
+        assertThat(allocation(result, "INFY").percentage()).isEqualTo(new BigDecimal("24.24"));
+        assertThat(allocation(result, "INFY").currentValue()).isEqualTo(new BigDecimal("14402.0000"));
         assertThat(result.instrumentAllocations().stream()
                 .map(InstrumentAllocationResponse::percentage)
                 .reduce(BigDecimal.ZERO, BigDecimal::add))
                 .isCloseTo(new BigDecimal("100.00"), within(new BigDecimal("0.02")));
+
+        assertThat(percentage(result, "Energy")).isEqualTo(new BigDecimal("42.08"));
+        assertThat(result.sectorAllocations().stream()
+                .filter(slice -> slice.sector().equals("Energy"))
+                .map(SectorAllocationResponse::currentValue)
+                .findFirst()
+                .orElseThrow())
+                .isEqualTo(new BigDecimal("25000.0000"));
+        assertThat(percentage(result, "Technology")).isEqualTo(new BigDecimal("57.92"));
+        assertThat(result.sectorAllocations().stream()
+                .filter(slice -> slice.sector().equals("Technology"))
+                .map(SectorAllocationResponse::currentValue)
+                .findFirst()
+                .orElseThrow())
+                .isEqualTo(new BigDecimal("34404.5000"));
+        assertThat(share(result.sectorAllocations())).isCloseTo(new BigDecimal("100.00"), within(new BigDecimal("0.02")));
     }
 
     @Test
@@ -202,6 +244,13 @@ class PortfolioAnalyticsTest {
             assertThat(holding.pnl()).isNotNull();
             assertThat(holding.returnPercent()).isNotNull();
         });
+    }
+
+    private static InstrumentAllocationResponse allocation(PortfolioAnalyticsResponse result, String symbol) {
+        return result.instrumentAllocations().stream()
+                .filter(slice -> slice.symbol().equals(symbol))
+                .findFirst()
+                .orElseThrow();
     }
 
     private static BigDecimal percentage(PortfolioAnalyticsResponse result, String sector) {

@@ -480,7 +480,7 @@ public final class AssistantReplyBuilder {
         }
         String percentage = percent(largest.get(0).percentage());
         if (largest.size() == 1) {
-            return largest.get(0).symbol() + " in " + portfolio.name() + " has the largest allocation at " + percentage + ".";
+            return largest.get(0).symbol() + " in " + portfolio.name() + " has the largest allocation of current market value at " + percentage + ".";
         }
         StringBuilder sentence = new StringBuilder();
         for (int index = 0; index < largest.size(); index++) {
@@ -489,7 +489,7 @@ public final class AssistantReplyBuilder {
             }
             sentence.append(largest.get(index).symbol());
         }
-        sentence.append(" in ").append(portfolio.name()).append(" share the largest allocation at ").append(percentage).append('.');
+        sentence.append(" in ").append(portfolio.name()).append(" share the largest allocation of current market value at ").append(percentage).append('.');
         return sentence.toString();
     }
 
@@ -558,7 +558,7 @@ public final class AssistantReplyBuilder {
         if (analytics.sectorAllocations().isEmpty()) {
             return portfolio.name() + " has no sector allocation.";
         }
-        StringBuilder sentence = new StringBuilder(portfolio.name()).append(" is invested in ");
+        StringBuilder sentence = new StringBuilder(portfolio.name()).append(" is allocated by current market value to ");
         List<SectorAllocationResponse> sectors = analytics.sectorAllocations();
         for (int index = 0; index < sectors.size(); index++) {
             SectorAllocationResponse sector = sectors.get(index);

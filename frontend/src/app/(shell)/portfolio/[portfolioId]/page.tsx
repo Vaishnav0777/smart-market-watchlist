@@ -224,7 +224,7 @@ function PortfolioHeadline({ portfolio, analytics }: { portfolio: Portfolio; ana
         <p className="mt-2 text-xs text-muted">This portfolio uses more than one currency. Invested amount, value, unrealized P&L, return, and allocation are not combined into one total.</p>
       ) : null}
       {!analytics?.mixedCurrencies && analytics?.returnPercent == null && (analytics?.unvaluedPositions ?? 0) > 0 ? (
-        <p className="mt-2 text-xs text-muted">No quote is available for the open positions. They stay in the amount invested and are left out of value and profit.</p>
+        <p className="mt-2 text-xs text-muted">No quote is available for the open positions. They stay in the amount invested and are left out of current value, profit, and allocation.</p>
       ) : null}
       {analytics && !analytics.realTime && analytics.holdings.some((holding) => holding.currentValue != null) ? (
         <p className="mt-2 text-xs text-muted">These quotes are not all real-time.</p>
@@ -282,24 +282,26 @@ function AnalyticsSummary({ analytics }: { analytics: PortfolioAnalytics }) {
       <div className="grid gap-3 lg:grid-cols-2">
           <AllocationList
             title="Holding allocation"
+            note="By current market value"
             empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
             rows={largest.map((slice) => ({
               key: slice.instrumentId,
               label: slice.symbol,
               detail: slice.exchange,
-              invested: slice.invested,
+              currentValue: slice.currentValue,
               percentage: slice.percentage,
             }))}
             currency={currency}
           />
           <AllocationList
             title="Sector allocation"
+            note="By current market value"
             empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
             rows={analytics.sectorAllocations.map((slice) => ({
               key: slice.sector,
               label: slice.sector,
               detail: null,
-              invested: slice.invested,
+              currentValue: slice.currentValue,
               percentage: slice.percentage,
             }))}
             currency={currency}
@@ -328,18 +330,21 @@ function PerformerCard({ title, holding }: { title: string; holding: HoldingAnal
 
 function AllocationList({
   title,
+  note,
   empty,
   rows,
   currency,
 }: {
   title: string;
+  note: string;
   empty: string;
-  rows: { key: string; label: string; detail: string | null; invested: number; percentage: number }[];
+  rows: { key: string; label: string; detail: string | null; currentValue: number; percentage: number }[];
   currency: string | null;
 }) {
   return (
     <div className="surface px-3 py-3">
       <h3 className="text-sm font-semibold">{title}</h3>
+      <p className="text-xs text-muted">{note}</p>
       {rows.length === 0 ? (
         <p className="mt-2 text-sm text-muted">{empty}</p>
       ) : (
@@ -352,7 +357,7 @@ function AllocationList({
                   {row.detail ? <span className="text-muted"> · {row.detail}</span> : null}
                 </span>
                 <span className="tabular-nums text-muted">
-                  {shareLabel(row.percentage)} · {formatMoney(row.invested, currency)}
+                  {shareLabel(row.percentage)} · {formatMoney(row.currentValue, currency)}
                 </span>
               </div>
               <span className="chart-track block h-1 overflow-hidden" aria-hidden="true">
@@ -525,7 +530,7 @@ function HoldingsSection({
               <th className="num">Current value</th>
               <th className="num">P&L</th>
               <th className="num">Return</th>
-              <th className="num">Allocation</th>
+              <th className="num" title="Share of current market value">Allocation</th>
               <th>Quality</th>
               <th>Actions</th>
             </tr>
@@ -574,7 +579,7 @@ function HoldingCard(props: HoldingEditors & { position: Position; holding: Hold
         <FigureTerm label="Value" value={formatMoney(holding?.currentValue, holding?.currency)} />
         <FigureTerm label="P&L" value={`${directionMark(holding?.pnl)} ${formatSignedMoney(holding?.pnl, holding?.currency)}`.trim()} tone={moneyTone(holding?.pnl ?? null)} />
         <FigureTerm label="Return" value={formatPercent(holding?.returnPercent ?? null) ?? "—"} tone={moneyTone(holding?.returnPercent ?? null)} />
-        <FigureTerm label="Allocation" value={shareLabel(allocation)} />
+        <FigureTerm label="Allocation" value={shareLabel(allocation)} title="Share of current market value" />
       </dl>
       <HoldingEditors
         editing={props.editing}
@@ -591,10 +596,10 @@ function HoldingCard(props: HoldingEditors & { position: Position; holding: Hold
   );
 }
 
-function FigureTerm({ label, value, tone }: { label: string; value: string | null; tone?: string }) {
+function FigureTerm({ label, value, tone, title }: { label: string; value: string | null; tone?: string; title?: string }) {
   return (
     <div>
-      <dt className="text-xs tracking-wide text-muted uppercase">{label}</dt>
+      <dt className="text-xs tracking-wide text-muted uppercase" title={title}>{label}</dt>
       <dd className={`mt-1 tabular-nums ${tone ?? "text-foreground"}`}>{value}</dd>
     </div>
   );

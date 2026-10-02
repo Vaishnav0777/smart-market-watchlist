@@ -5,8 +5,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Read-only analytics for one portfolio. Monetary totals and allocation
+ * Read-only analytics for one portfolio. Combined monetary totals and allocation
  * percentages are present only when every valued quote uses the same currency.
+ * Allocation weights use current market value, not invested amount.
  * {@code realTime} is true only when every valued quote has quality {@code REAL_TIME}.
  */
 public record PortfolioAnalyticsResponse(

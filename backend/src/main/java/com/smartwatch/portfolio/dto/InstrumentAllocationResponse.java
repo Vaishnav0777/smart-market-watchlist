@@ -4,13 +4,13 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * Share of the amount invested in one instrument.
+ * Share of current market value in one instrument. Holdings without a quote are omitted.
  */
 public record InstrumentAllocationResponse(
         UUID instrumentId,
         String symbol,
         String exchange,
         String sector,
-        BigDecimal invested,
+        BigDecimal currentValue,
         BigDecimal percentage) {
 }
