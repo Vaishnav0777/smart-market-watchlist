@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 
 export function LoadingState({ label = "Loading" }: { label?: string }) {
   return (
-    <div className="surface flex items-center gap-3 px-4 py-5 text-sm text-muted" role="status">
-      <span className="h-2 w-2 animate-pulse rounded-full bg-brass" />
+    <div className="flex items-center gap-2 px-1 py-3 text-sm text-muted" role="status">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted" />
       {label}
     </div>
   );
@@ -14,9 +14,9 @@ export function LoadingState({ label = "Loading" }: { label?: string }) {
 
 export function EmptyState({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
   return (
-    <div className="surface px-5 py-8">
-      <h2 className="font-serif text-2xl text-foreground">{title}</h2>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-muted">{body}</p>
+    <div className="surface px-4 py-4">
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <p className="mt-1 max-w-xl text-sm leading-5 text-muted">{body}</p>
       {children}
     </div>
   );
@@ -27,7 +27,7 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   const expired = error instanceof ApiError && error.status === 401;
   return (
     <div className="surface border-negative/40 px-5 py-6" role="alert">
-      <h2 className="font-serif text-2xl text-foreground">{expired ? "Sign in required" : "Could not load this"}</h2>
+      <h2 className="text-sm font-semibold text-foreground">{expired ? "Sign in required" : "Could not load this"}</h2>
       <p className="mt-2 text-sm leading-6 text-muted">{message}</p>
       {onRetry && !expired ? (
         <button className="button-secondary mt-4" type="button" onClick={onRetry}>
@@ -38,14 +38,22 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   );
 }
 
+export function qualityTone(quality: MarketDataQuality): string {
+  switch (quality) {
+    case "REAL_TIME":
+      return "border-positive/40 bg-surface text-positive";
+    case "DELAYED":
+    case "STALE":
+      return "border-warning/50 bg-surface text-warning";
+    case "END_OF_DAY":
+    case "UNKNOWN":
+      return "border-line bg-surface text-muted";
+  }
+}
+
 export function QualityBadge({ quality }: { quality: MarketDataQuality }) {
-  const cautious = quality === "STALE" || quality === "UNKNOWN";
   return (
-    <span
-      className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${
-        cautious ? "border-brass text-brass" : "border-line text-muted"
-      }`}
-    >
+    <span className={`inline-flex border px-1 py-px text-[0.62rem] font-medium tracking-wide uppercase ${qualityTone(quality)}`}>
       {qualityLabel(quality)}
     </span>
   );

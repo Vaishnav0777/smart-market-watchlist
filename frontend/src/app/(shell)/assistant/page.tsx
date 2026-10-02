@@ -6,16 +6,14 @@ import type { AssistantAnswer, AssistantSource } from "@/lib/types";
 import { useState } from "react";
 
 const examples = [
-  "Which investment has performed best?",
+  "How is my portfolio doing?",
+  "What is my largest allocation?",
+  "Which holding has the highest return?",
+  "How much have I invested?",
+  "What's my unrealized P&L?",
   "Which investment has performed worst?",
-  "What is my portfolio's total value?",
-  "What is my total invested amount?",
-  "What is my unrealized P&L?",
-  "How is my portfolio distributed across sectors?",
-  "Which holdings have the largest allocation?",
   "What changed recently in my watchlists?",
   "How many holdings do I have?",
-  "What is the current value of RELIANCE?",
 ];
 
 const sourceLabel: Record<AssistantSource, string> = {
@@ -56,8 +54,7 @@ export default function AssistantPage() {
   return (
     <div className="grid max-w-3xl gap-6">
       <header>
-        <p className="text-xs font-medium tracking-[0.18em] text-brass uppercase">Assistant</p>
-        <h1 className="mt-2 font-serif text-4xl">Ask about your holdings</h1>
+        <h1 className="text-lg font-semibold">Portfolio assistant</h1>
         <p className="mt-2 text-sm leading-6 text-muted">
           Answers come from your stored portfolio and watchlist figures. This assistant does not predict prices or recommend buying or selling.
         </p>
@@ -99,7 +96,7 @@ export default function AssistantPage() {
 function AnswerCard({ answer }: { answer: AssistantAnswer }) {
   return (
     <section className="surface px-5 py-5" aria-live="polite">
-      <h2 className="font-serif text-2xl">{answer.refused ? "Declined" : "Answer"}</h2>
+      <h2 className="text-sm font-semibold">{answer.refused ? "Declined" : "Answer"}</h2>
       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{answer.answer}</p>
       {answer.sources.length > 0 ? (
         <ul className="mt-4 flex flex-wrap gap-2">

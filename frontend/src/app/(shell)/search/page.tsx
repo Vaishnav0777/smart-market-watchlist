@@ -4,7 +4,7 @@ import { ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/compo
 import { ApiError } from "@/lib/api/client";
 import { searchInstruments } from "@/lib/api/instruments";
 import { addWatchlistItem, listWatchlists } from "@/lib/api/watchlists";
-import { formatMoney, formatPercent, previousCloseMove } from "@/lib/format";
+import { directionMark, formatMoney, formatPercent, formatSignedMoney, formatVolume, moveTone, previousCloseMove, priceDelta } from "@/lib/format";
 import type { InstrumentListing, WatchlistSummary } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -96,8 +96,7 @@ function SearchScreen() {
   return (
     <div className="grid gap-6">
       <header>
-        <p className="text-xs font-medium tracking-[0.18em] text-brass uppercase">Directory</p>
-        <h1 className="mt-2 font-serif text-4xl">Search instruments</h1>
+        <h1 className="text-lg font-semibold">Markets</h1>
         <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
           Results come from the backend instrument directory. The catalog is not stored in the browser.
         </p>
@@ -122,33 +121,53 @@ function SearchScreen() {
       {!results ? <LoadingState label="Searching instruments" /> : null}
       {results && results.length === 0 ? (
         <div className="surface px-5 py-8">
-          <h2 className="font-serif text-2xl">No matches</h2>
+          <h2 className="text-sm font-semibold">No matches</h2>
           <p className="mt-2 text-sm text-muted">Try another symbol or company name from the synthetic directory.</p>
         </div>
       ) : null}
       {results && results.length > 0 ? (
-        <ul className="grid gap-3">
-          {results.map((listing) => {
-            const move = previousCloseMove(listing.quote.price, listing.quote.previousClose);
-            const tone = move == null ? "text-muted" : move < 0 ? "text-negative" : "text-positive";
-            return (
-              <li key={listing.instrument.id} className="surface flex flex-wrap items-center justify-between gap-3 px-4 py-4">
-                <div>
-                  <Link href={`/instruments/${listing.instrument.id}`} className="font-serif text-2xl">{listing.instrument.symbol}</Link>
-                  <p className="text-sm text-muted">{listing.instrument.displayName} · {listing.instrument.exchange}</p>
-                </div>
-                <div className="text-right">
-                  <p className="tabular-nums">{formatMoney(listing.quote.price, listing.quote.currency)}</p>
-                  <p className={`text-sm tabular-nums ${tone}`}>{formatPercent(move) ?? "—"}</p>
-                  <p className="mt-1"><QualityBadge quality={listing.quote.quality} /></p>
-                </div>
-                <button className="button-primary" type="button" disabled={pendingId === listing.instrument.id} onClick={() => add(listing)}>
-                  {pendingId === listing.instrument.id ? "Adding" : "Add"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="surface overflow-x-auto">
+          <table className="market-table min-w-[52rem]">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Instrument</th>
+                <th className="num">LTP</th>
+                <th className="num">Change</th>
+                <th className="num">Change %</th>
+                <th className="num">Volume</th>
+                <th>Quality</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((listing) => {
+                const move = previousCloseMove(listing.quote.price, listing.quote.previousClose);
+                const delta = priceDelta(listing.quote.price, listing.quote.previousClose);
+                const tone = moveTone(move);
+                return (
+                  <tr key={listing.instrument.id}>
+                    <td>
+                      <Link href={`/instruments/${listing.instrument.id}`} className="font-semibold text-foreground">{listing.instrument.symbol}</Link>
+                      <p className="text-xs text-muted">{listing.instrument.exchange}</p>
+                    </td>
+                    <td>{listing.instrument.displayName}</td>
+                    <td className="num">{formatMoney(listing.quote.price, listing.quote.currency)}</td>
+                    <td className={`num ${tone}`}>{formatSignedMoney(delta, listing.quote.currency)}</td>
+                    <td className={`num ${tone}`}>{formatPercent(move) ?? "—"} {directionMark(move)}</td>
+                    <td className="num">{formatVolume(listing.quote.volume)}</td>
+                    <td><QualityBadge quality={listing.quote.quality} /></td>
+                    <td>
+                      <button className="button-primary" type="button" disabled={pendingId === listing.instrument.id} onClick={() => add(listing)}>
+                        {pendingId === listing.instrument.id ? "Adding" : "Add"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : null}
     </div>
   );

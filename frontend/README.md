@@ -1,6 +1,6 @@
-# Smart Market Watchlist
+# MarketPulse
 
-The Next.js application for Smart Market Watchlist.
+The Next.js application for MarketPulse. Tagline: Know what changed.
 
 Start it from this directory:
 

@@ -43,8 +43,49 @@ export function formatPercent(value: number | null | undefined): string | null {
   if (value == null || Number.isNaN(value)) {
     return null;
   }
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${trimNumber(value)}%`;
+  const amount = Math.abs(value).toFixed(2);
+  if (value > 0) {
+    return `+${amount}%`;
+  }
+  if (value < 0) {
+    return `−${amount}%`;
+  }
+  return `${amount}%`;
+}
+
+export function formatSignedMoney(value: number | null | undefined, currency: string | null | undefined): string {
+  if (value == null || Number.isNaN(value)) {
+    return "—";
+  }
+  const amount = formatMoney(Math.abs(value), currency);
+  if (value > 0) {
+    return `+${amount}`;
+  }
+  if (value < 0) {
+    return `−${amount}`;
+  }
+  return amount;
+}
+
+export function priceDelta(price: number, previousClose: number | null): number | null {
+  if (previousClose == null) {
+    return null;
+  }
+  return price - previousClose;
+}
+
+export function moveTone(value: number | null | undefined): string {
+  if (value == null || value === 0 || Number.isNaN(value)) {
+    return "text-muted";
+  }
+  return value < 0 ? "text-negative" : "text-positive";
+}
+
+export function directionMark(value: number | null | undefined): string {
+  if (value == null || value === 0 || Number.isNaN(value)) {
+    return "";
+  }
+  return value < 0 ? "▼" : "▲";
 }
 
 export function previousCloseMove(price: number, previousClose: number | null): number | null {
@@ -52,6 +93,21 @@ export function previousCloseMove(price: number, previousClose: number | null): 
     return null;
   }
   return ((price - previousClose) / previousClose) * 100;
+}
+
+export function formatClock(value: string | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  }).format(date);
 }
 
 export function formatTimestamp(value: string | null | undefined): string {
@@ -100,7 +156,3 @@ export function qualityLabel(quality: MarketDataQuality): string {
   }
 }
 
-function trimNumber(value: number): string {
-  const fixed = value.toFixed(2);
-  return fixed.replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
-}

@@ -1,27 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --background: #10161c;
-  --foreground: #f3efe6;
-  --muted: #b7c0c8;
-  --brass: #d2b48a;
-  --line: rgba(210, 180, 138, 0.28);
-  --surface: #182128;
-  --positive: #8fbfa8;
-  --negative: #d98984;
+  --background: #f8fafc;
+  --foreground: #1a1d21;
+  --muted: #6b7280;
+  --brass: #6b7280;
+  --line: #e6eaf0;
+  --surface: #ffffff;
+  --positive: #15803d;
+  --negative: #dc2626;
+  --warning: #b45309;
+  --info: #6b7280;
+  --hover: #f1f5f9;
+  --table-head: #f8fafc;
+  --button-bg: #1a1d21;
+  --button-fg: #ffffff;
+  --focus: #64748b;
+  --chart: #64748b;
+  --chart-track: #e6edf3;
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --background: #f4f1ea;
-    --foreground: #1c2430;
-    --muted: #5c6770;
-    --brass: #8a6232;
-    --line: rgba(28, 36, 48, 0.12);
-    --surface: #fffdf8;
-    --positive: #1f7a4d;
-    --negative: #a33b3b;
-  }
+:root[data-theme="dark"] {
+  --background: #0f1419;
+  --foreground: #e6edf3;
+  --muted: #a3b0bc;
+  --brass: #a3b0bc;
+  --line: #2c3844;
+  --surface: #182028;
+  --positive: #3ecf8e;
+  --negative: #f17a7a;
+  --warning: #e2b15a;
+  --info: #a3b0bc;
+  --hover: #24303a;
+  --table-head: #141b22;
+  --button-bg: #e6edf3;
+  --button-fg: #12181e;
+  --focus: #9eb0c0;
+  --chart: #8ea0b0;
+  --chart-track: #24303a;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -33,56 +51,139 @@
   --color-surface: var(--surface);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-hover: var(--hover);
   --font-sans: var(--font-outfit);
-  --font-serif: var(--font-fraunces);
+  --font-serif: var(--font-outfit);
 }
 
 body {
-  background:
-    radial-gradient(900px 420px at 0% -10%, rgba(210, 180, 138, 0.14), transparent 55%),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-outfit), sans-serif;
 }
 
 .surface {
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: 0.25rem;
   background: var(--surface);
 }
 
 .field {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  background: transparent;
-  padding: 0.65rem 0.8rem;
+  border-radius: 0.25rem;
+  background: var(--surface);
+  padding: 0.4rem 0.6rem;
   color: var(--foreground);
+  font-size: 0.875rem;
 }
 
 .field:focus {
-  outline: 2px solid var(--brass);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 
 .button-primary,
 .button-secondary {
-  border-radius: 999px;
-  padding: 0.55rem 0.95rem;
-  font-size: 0.875rem;
+  border-radius: 0.25rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.button-primary:focus-visible,
+.button-secondary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .button-primary {
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--button-bg);
+  color: var(--button-fg);
 }
 
 .button-secondary {
   border: 1px solid var(--line);
+  background: var(--surface);
   color: var(--foreground);
 }
 
 .button-primary:disabled,
 .button-secondary:disabled {
   opacity: 0.5;
+}
+
+.market-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+
+.market-table th {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--table-head);
+  border-bottom: 1px solid var(--line);
+}
+
+.market-table td {
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  background: var(--surface);
+}
+
+.market-table tbody tr:hover td {
+  background: var(--hover);
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  background: var(--surface);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.theme-switch:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.theme-icon-dark {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-icon-light {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-icon-dark {
+  display: inline;
+}
+
+.chart-track {
+  background: var(--chart-track);
+}
+
+.chart-fill {
+  background: var(--chart);
 }

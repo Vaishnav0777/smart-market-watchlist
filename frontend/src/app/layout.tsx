@@ -1,30 +1,34 @@
 import { AuthProvider } from "@/components/auth-provider";
+import { ThemeSync } from "@/components/theme-sync";
+import { themeInitScript } from "@/lib/theme";
 import type { Metadata } from "next";
-import { Fraunces, Outfit } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
-const outfit = Outfit({
+const outfit = IBM_Plex_Sans({
   variable: "--font-outfit",
   subsets: ["latin"],
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
-  title: "Smart Market Watchlist",
-  description: "Watch instruments and see what observably changed since you last checked.",
+  title: "MarketPulse",
+  description: "Know what changed.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${outfit.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <Script id="marketpulse-theme" strategy="beforeInteractive">
+          {themeInitScript}
+        </Script>
+        <ThemeSync />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

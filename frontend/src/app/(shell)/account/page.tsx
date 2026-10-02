@@ -30,8 +30,7 @@ export default function AccountPage() {
   return (
     <div className="grid max-w-xl gap-6">
       <header>
-        <p className="text-xs font-medium tracking-[0.18em] text-brass uppercase">Account</p>
-        <h1 className="mt-2 font-serif text-4xl">{auth.user.displayName}</h1>
+        <h1 className="text-lg font-semibold">{auth.user.displayName}</h1>
       </header>
       <dl className="surface grid gap-4 px-5 py-5 text-sm">
         <div>

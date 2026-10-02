@@ -2,15 +2,16 @@
 
 import { useAuth } from "@/components/auth-provider";
 import { LoadingState } from "@/components/states";
+import { ThemeToggle } from "@/components/theme-toggle";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/watchlists", label: "Watchlists" },
-  { href: "/search", label: "Search" },
+  { href: "/dashboard", label: "Overview" },
+  { href: "/watchlists", label: "Watchlist" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/search", label: "Markets" },
   { href: "/assistant", label: "Assistant" },
   { href: "/account", label: "Account" },
 ];
@@ -35,24 +36,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-full lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
-      <aside className="border-b border-line lg:min-h-screen lg:border-r lg:border-b-0">
-        <div className="flex items-center justify-between gap-4 px-5 py-5 lg:block">
-          <Link href="/dashboard" className="block">
-            <p className="text-[0.68rem] font-medium tracking-[0.18em] text-brass uppercase">Smart Market</p>
-            <p className="mt-1 font-serif text-xl text-foreground">Watchlist</p>
-          </Link>
-          <p className="truncate text-sm text-muted lg:mt-6">{auth.user?.displayName}</p>
+    <div className="min-h-full bg-background">
+      <header className="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2">
+        <Link href="/dashboard" className="text-sm font-semibold tracking-[0.12em] text-foreground">MARKETPULSE</Link>
+        <div className="flex items-center gap-3">
+          <Link href="/account" className="max-w-[12rem] truncate text-xs text-muted">{auth.user?.displayName}</Link>
+          <ThemeToggle />
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:block lg:px-3 lg:pb-6" aria-label="Primary">
+      </header>
+      <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)]">
+        <nav className="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-1.5 lg:block lg:min-h-[calc(100vh-2.75rem)] lg:border-r lg:border-b-0 lg:py-2" aria-label="Primary">
           {links.map((link) => {
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`block rounded-full px-3 py-2 text-sm whitespace-nowrap ${
-                  active ? "bg-surface text-foreground" : "text-muted hover:text-foreground"
+                className={`block px-3 py-1.5 text-sm whitespace-nowrap ${
+                  active ? "bg-hover font-medium text-foreground" : "text-muted hover:text-foreground"
                 }`}
                 aria-current={active ? "page" : undefined}
               >
@@ -61,8 +62,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-      </aside>
-      <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</div>
+        <div className="min-w-0 bg-background px-4 py-4 sm:px-5 lg:px-6 lg:py-5">{children}</div>
+      </div>
     </div>
   );
 }

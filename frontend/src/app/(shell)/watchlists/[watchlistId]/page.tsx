@@ -5,7 +5,7 @@ import { ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/compo
 import { acknowledgeCheck, getChanges } from "@/lib/api/changes";
 import { ApiError } from "@/lib/api/client";
 import { getWatchlist, removeWatchlistItem, reorderWatchlistItems } from "@/lib/api/watchlists";
-import { formatMoney, formatPercent, formatTimestamp, previousCloseMove } from "@/lib/format";
+import { directionMark, formatMoney, formatPercent, formatSignedMoney, formatTimestamp, moveTone, previousCloseMove, priceDelta } from "@/lib/format";
 import type { WatchlistChanges, WatchlistDetail } from "@/lib/types";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -93,12 +93,12 @@ export default function WatchlistDetailPage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="grid gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link href="/watchlists" className="text-xs tracking-[0.16em] text-brass uppercase">Watchlists</Link>
-          <h1 className="mt-2 font-serif text-4xl">{watchlist.name}</h1>
-          <p className="mt-2 text-sm text-muted">{watchlist.items.length} {watchlist.items.length === 1 ? "instrument" : "instruments"}</p>
+          <Link href="/watchlists" className="text-xs text-muted">Watchlist</Link>
+          <h1 className="text-base font-semibold">{watchlist.name}</h1>
+          <p className="text-xs text-muted">{watchlist.items.length} {watchlist.items.length === 1 ? "instrument" : "instruments"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link className="button-primary" href={`/search?watchlist=${watchlist.id}`}>Add instrument</Link>
@@ -111,38 +111,46 @@ export default function WatchlistDetailPage() {
       {actionError ? <p className="text-sm text-negative" role="alert">{actionError}</p> : null}
 
       {watchlist.items.length === 0 ? (
-        <div className="surface px-5 py-8">
-          <h2 className="font-serif text-2xl">This watchlist is empty</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">Search the instrument directory and add a symbol to this list.</p>
+        <div className="surface px-4 py-4">
+          <h2 className="text-sm font-semibold">This watchlist is empty</h2>
+          <p className="mt-1 text-sm text-muted">Search the instrument directory and add a symbol to this list.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[44rem] text-left text-sm">
-            <thead className="text-xs tracking-wide text-muted uppercase">
+        <div className="surface overflow-x-auto">
+          <table className="market-table min-w-[52rem]">
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-medium">Instrument</th>
-                <th className="px-3 py-2 font-medium">Price</th>
-                <th className="px-3 py-2 font-medium">Vs previous close</th>
-                <th className="px-3 py-2 font-medium">Order</th>
+                <th>Symbol</th>
+                <th>Company</th>
+                <th className="num">LTP</th>
+                <th className="num">Change</th>
+                <th className="num">Change %</th>
+                <th className="num">Volume</th>
+                <th>Quality</th>
+                <th>Order</th>
               </tr>
             </thead>
             <tbody>
               {watchlist.items.map((item, index) => {
                 const movePercent = item.quote ? previousCloseMove(item.quote.price, item.quote.previousClose) : null;
-                const tone = movePercent == null ? "text-muted" : movePercent < 0 ? "text-negative" : "text-positive";
+                const delta = item.quote ? priceDelta(item.quote.price, item.quote.previousClose) : null;
+                const tone = moveTone(movePercent);
                 return (
-                  <tr key={item.id} className="border-t border-line">
-                    <td className="px-3 py-3">
-                      <Link href={`/instruments/${item.instrument.id}`} className="text-foreground">{item.instrument.symbol}</Link>
-                      <p className="text-xs text-muted">{item.instrument.displayName} · {item.instrument.exchange}</p>
+                  <tr key={item.id}>
+                    <td>
+                      <Link href={`/instruments/${item.instrument.id}`} className="font-semibold text-foreground">{item.instrument.symbol}</Link>
+                      <p className="text-xs text-muted">{item.instrument.exchange}</p>
                     </td>
-                    <td className="px-3 py-3 tabular-nums">
+                    <td>{item.instrument.displayName}</td>
+                    <td className="num">
                       {item.quote ? formatMoney(item.quote.price, "INR") : "No quote"}
-                      {item.quote ? <p className="mt-1"><QualityBadge quality={item.quote.quality} /></p> : null}
                       {item.quote ? <p className="text-xs text-muted">{formatTimestamp(item.quote.timestamp)}</p> : null}
                     </td>
-                    <td className={`px-3 py-3 tabular-nums ${tone}`}>{formatPercent(movePercent) ?? "—"}</td>
-                    <td className="px-3 py-3">
+                    <td className={`num ${tone}`}>{formatSignedMoney(delta, "INR")}</td>
+                    <td className={`num ${tone}`}>{formatPercent(movePercent) ?? "—"} {directionMark(movePercent)}</td>
+                    <td className="num text-muted">—</td>
+                    <td>{item.quote ? <QualityBadge quality={item.quote.quality} /> : <span className="text-xs text-muted">—</span>}</td>
+                    <td>
                       <div className="flex gap-2">
                         <button className="button-secondary" type="button" onClick={() => move(index, -1)} disabled={index === 0}>Up</button>
                         <button className="button-secondary" type="button" onClick={() => move(index, 1)} disabled={index === watchlist.items.length - 1}>Down</button>

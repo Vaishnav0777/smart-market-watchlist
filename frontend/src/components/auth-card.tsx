@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { ApiError } from "@/lib/api/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -43,9 +44,12 @@ export function AuthCard({ mode }: { mode: Mode }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 py-16">
-      <p className="text-xs font-medium tracking-[0.18em] text-brass uppercase">Smart Market Watchlist</p>
-      <h1 className="mt-3 font-serif text-4xl text-foreground">{mode === "login" ? "Sign in" : "Create an account"}</h1>
+    <main className="relative mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 py-16">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <p className="text-sm font-semibold tracking-[0.12em] text-foreground">MARKETPULSE</p>
+      <h1 className="mt-2 text-xl font-semibold text-foreground">{mode === "login" ? "Sign in" : "Create an account"}</h1>
       <p className="mt-3 text-sm leading-6 text-muted">
         {mode === "login"
           ? "Use the email and password for your account."

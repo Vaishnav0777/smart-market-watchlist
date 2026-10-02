@@ -98,8 +98,7 @@ export default function WatchlistsPage() {
   return (
     <div className="grid gap-6">
       <header>
-        <p className="text-xs font-medium tracking-[0.18em] text-brass uppercase">Watchlists</p>
-        <h1 className="mt-2 font-serif text-4xl">Your lists</h1>
+        <h1 className="text-lg font-semibold">Watchlist</h1>
       </header>
       <form className="surface flex flex-wrap items-end gap-3 px-4 py-4" onSubmit={onCreate}>
         <label className="grid min-w-[16rem] flex-1 gap-1 text-sm">
@@ -111,7 +110,7 @@ export default function WatchlistsPage() {
       </form>
       {watchlists.length === 0 ? (
         <div className="surface px-5 py-8">
-          <h2 className="font-serif text-2xl">No watchlists</h2>
+          <h2 className="text-sm font-semibold">No watchlists</h2>
           <p className="mt-2 text-sm leading-6 text-muted">Create one, then search for an instrument and add it.</p>
         </div>
       ) : (
@@ -119,7 +118,7 @@ export default function WatchlistsPage() {
           {watchlists.map((watchlist) => (
             <li key={watchlist.id} className="surface flex flex-wrap items-center justify-between gap-3 px-4 py-4">
               <div>
-                <Link href={`/watchlists/${watchlist.id}`} className="font-serif text-2xl">{watchlist.name}</Link>
+                <Link href={`/watchlists/${watchlist.id}`} className="font-semibold text-foreground">{watchlist.name}</Link>
                 <p className="mt-1 text-sm text-muted">{watchlist.itemCount} {watchlist.itemCount === 1 ? "instrument" : "instruments"}</p>
               </div>
               <div className="flex gap-2">

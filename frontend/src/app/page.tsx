@@ -1,25 +1,23 @@
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 import Link from "next/link";
 
 export default function Home() {
   const auth = useAuth();
 
   return (
-    <main className="flex flex-1 items-center">
+    <main className="relative flex flex-1 items-center">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="mx-auto w-full max-w-3xl px-6 py-24">
-        <div className="mb-10 flex h-11 w-11 items-center justify-center rounded-full border border-brass/40">
-          <span className="h-2.5 w-2.5 rounded-full bg-brass" />
-        </div>
-        <p className="text-xs font-medium tracking-[0.22em] text-brass uppercase">
-          Market intelligence
-        </p>
-        <h1 className="mt-4 max-w-xl font-serif text-5xl leading-tight tracking-tight text-foreground sm:text-6xl">
-          Smart Market Watchlist
+        <h1 className="max-w-xl text-3xl font-semibold tracking-tight text-foreground">
+          MarketPulse
         </h1>
-        <p className="mt-6 max-w-xl text-xl leading-8 text-muted">
-          Come back later and see what actually changed on the instruments you follow.
+        <p className="mt-3 max-w-xl text-lg text-muted">
+          Know what changed.
         </p>
         <div className="mt-10 flex flex-wrap gap-3">
           {auth.status === "authenticated" ? (

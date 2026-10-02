@@ -95,8 +95,7 @@ export default function PortfolioPage() {
   return (
     <div className="grid gap-6">
       <header>
-        <p className="text-xs font-medium tracking-[0.18em] text-brass uppercase">Portfolio</p>
-        <h1 className="mt-2 font-serif text-4xl">Holdings</h1>
+        <h1 className="text-lg font-semibold">Portfolio</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
           A portfolio is a book of positions you record yourself. Quantity and average price are stored.
           The current price, when shown, is the latest synthetic quote.
@@ -118,7 +117,7 @@ export default function PortfolioPage() {
       </form>
       {portfolios.length === 0 ? (
         <div className="surface px-5 py-8">
-          <h2 className="font-serif text-2xl">No portfolios</h2>
+          <h2 className="text-sm font-semibold">No portfolios</h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
             Create a portfolio, then add a position for an instrument that already exists.
           </p>
@@ -128,7 +127,7 @@ export default function PortfolioPage() {
           {portfolios.map((portfolio) => (
             <li key={portfolio.id} className="surface flex flex-wrap items-center justify-between gap-3 px-4 py-4">
               <div>
-                <Link href={`/portfolio/${portfolio.id}`} className="font-serif text-2xl">{portfolio.name}</Link>
+                <Link href={`/portfolio/${portfolio.id}`} className="font-semibold text-foreground">{portfolio.name}</Link>
                 <p className="mt-1 text-sm text-muted">
                   {portfolio.positions.length} {portfolio.positions.length === 1 ? "position" : "positions"}
                 </p>

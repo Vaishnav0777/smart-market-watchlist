@@ -1,10 +1,10 @@
 "use client";
 
-import { EmptyState, ErrorState, LoadingState, SyntheticNotice } from "@/components/states";
+import { EmptyState, ErrorState, LoadingState, QualityBadge, SyntheticNotice } from "@/components/states";
 import { ApiError } from "@/lib/api/client";
 import { searchInstruments } from "@/lib/api/instruments";
 import { addPosition, getPortfolio, getPortfolioAnalytics, removePosition, updatePosition } from "@/lib/api/portfolios";
-import { formatMoney, formatPercent, formatQuantity, qualityLabel } from "@/lib/format";
+import { directionMark, formatMoney, formatPercent, formatQuantity, formatSignedMoney } from "@/lib/format";
 import type { HoldingAnalytics, InstrumentListing, MarketDataQuality, MarketDataSource, Portfolio, PortfolioAnalytics, Position } from "@/lib/types";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -147,23 +147,31 @@ export default function PortfolioDetailPage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link href="/portfolio" className="text-xs tracking-[0.16em] text-brass uppercase">Portfolio</Link>
-          <h1 className="mt-2 font-serif text-4xl">{portfolio.name}</h1>
-          <p className="mt-2 text-sm text-muted">
-            {portfolio.positions.length} {portfolio.positions.length === 1 ? "holding" : "holdings"}
-          </p>
-        </div>
-        {analytics?.realTime ? <DataMark quality="REAL_TIME" source={null} /> : null}
-      </header>
+    <div className="grid gap-4">
+      <PortfolioHeadline portfolio={portfolio} analytics={analytics} />
       <SyntheticNotice quotes={noticeQuotes(portfolio, analytics)} />
-      <AnalyticsSection analytics={analytics} error={analyticsError} onRetry={() => loadAnalytics(true)} />
       {actionError ? <p className="text-sm text-negative" role="alert">{actionError}</p> : null}
+      <HoldingsSection
+        portfolio={portfolio}
+        analytics={analytics}
+        editingId={editingId}
+        editQuantity={editQuantity}
+        editPrice={editPrice}
+        onEditQuantity={setEditQuantity}
+        onEditPrice={setEditPrice}
+        onStartEdit={(position) => {
+          setEditingId(position.id);
+          setEditQuantity(String(position.quantity));
+          setEditPrice(String(position.averageBuyPrice));
+        }}
+        onCancel={() => setEditingId(null)}
+        onSave={onSave}
+        onRemove={onRemove}
+      />
+      <AnalyticsSection analytics={analytics} error={analyticsError} onRetry={() => loadAnalytics(true)} />
 
-      <form className="surface grid gap-3 px-4 py-4" onSubmit={onAdd}>
-        <h2 className="font-serif text-2xl">Add a position</h2>
+      <form className="surface grid gap-2 px-3 py-3" onSubmit={onAdd}>
+        <h2 className="text-sm font-semibold">Add a position</h2>
         <label className="grid gap-1 text-sm">
           Instrument
           <input className="field" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedId(""); }} placeholder="Search symbol or company" />
@@ -198,25 +206,47 @@ export default function PortfolioDetailPage() {
         </div>
         <button className="button-primary w-fit" type="submit" disabled={pending}>{pending ? "Adding" : "Add position"}</button>
       </form>
-
-      <HoldingsSection
-        portfolio={portfolio}
-        analytics={analytics}
-        editingId={editingId}
-        editQuantity={editQuantity}
-        editPrice={editPrice}
-        onEditQuantity={setEditQuantity}
-        onEditPrice={setEditPrice}
-        onStartEdit={(position) => {
-          setEditingId(position.id);
-          setEditQuantity(String(position.quantity));
-          setEditPrice(String(position.averageBuyPrice));
-        }}
-        onCancel={() => setEditingId(null)}
-        onSave={onSave}
-        onRemove={onRemove}
-      />
     </div>
+  );
+}
+
+function PortfolioHeadline({ portfolio, analytics }: { portfolio: Portfolio; analytics: PortfolioAnalytics | null }) {
+  const currency = analytics?.currency ?? null;
+  return (
+    <header className="border-b border-line pb-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <Link href="/portfolio" className="text-xs text-muted">Portfolio</Link>
+        {analytics?.realTime ? <DataMark quality="REAL_TIME" source={null} /> : null}
+      </div>
+      <h1 className="text-base font-semibold">{portfolio.name}</h1>
+      <p className="text-xs text-muted">{portfolio.positions.length} {portfolio.positions.length === 1 ? "holding" : "holdings"}</p>
+      {analytics?.mixedCurrencies ? (
+        <p className="mt-2 text-xs text-muted">This portfolio uses more than one currency. Invested amount, value, unrealized P&L, return, and allocation are not combined into one total.</p>
+      ) : null}
+      {!analytics?.mixedCurrencies && analytics?.returnPercent == null && (analytics?.unvaluedPositions ?? 0) > 0 ? (
+        <p className="mt-2 text-xs text-muted">No quote is available for the open positions. They stay in the amount invested and are left out of value and profit.</p>
+      ) : null}
+      {analytics && !analytics.realTime && analytics.holdings.some((holding) => holding.currentValue != null) ? (
+        <p className="mt-2 text-xs text-muted">These quotes are not all real-time.</p>
+      ) : null}
+      <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-2">
+        <div>
+          <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatMoney(analytics?.currentValue, currency)}</p>
+          <p className="text-xs text-muted">Current value</p>
+        </div>
+        <p className="pb-1 text-sm tabular-nums">{formatMoney(analytics?.totalInvested, currency)} invested</p>
+        <div>
+          <p className="text-base font-semibold tabular-nums">
+            <span className={moneyTone(analytics?.totalPnl ?? null)}>{formatSignedMoney(analytics?.totalPnl, currency)}</span>
+            {" "}
+            <span className={moneyTone(analytics?.returnPercent ?? null)}>
+              {formatPercent(analytics?.returnPercent) ?? "—"} {directionMark(analytics?.returnPercent)}
+            </span>
+          </p>
+          <p className="text-xs text-muted">Unrealized P&L</p>
+        </div>
+      </div>
+    </header>
   );
 }
 
@@ -241,43 +271,15 @@ function AnalyticsSection({
 
 function AnalyticsSummary({ analytics }: { analytics: PortfolioAnalytics }) {
   const currency = analytics.currency;
-  const noQuote = !analytics.mixedCurrencies && analytics.returnPercent == null && analytics.unvaluedPositions > 0;
   const largest = [...analytics.instrumentAllocations].sort((left, right) => right.percentage - left.percentage || left.symbol.localeCompare(right.symbol));
   return (
-    <div className="grid gap-6">
-      {analytics.mixedCurrencies ? (
-        <p className="text-sm leading-6 text-muted">
-          This portfolio uses more than one currency. Invested amount, value, unrealized P&L, return, and allocation are not combined into one total.
-        </p>
-      ) : null}
-      {noQuote ? (
-        <p className="text-sm leading-6 text-muted">
-          No quote is available for the open positions. They stay in the amount invested and are left out of value and profit.
-        </p>
-      ) : null}
-      {!analytics.realTime && analytics.holdings.some((holding) => holding.currentValue != null) ? (
-        <p className="text-sm leading-6 text-muted">These quotes are not all real-time.</p>
-      ) : null}
-      <section className="grid gap-3">
-        <h2 className="font-serif text-2xl">Summary</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <AnalyticsFigure label="Total portfolio value" value={formatMoney(analytics.currentValue, currency)} featured />
-          <AnalyticsFigure label="Total invested" value={formatMoney(analytics.totalInvested, currency)} />
-          <AnalyticsFigure label="Unrealized P&L" value={formatMoney(analytics.totalPnl, currency)} tone={moneyTone(analytics.totalPnl)} />
-          <AnalyticsFigure label="Return" value={formatPercent(analytics.returnPercent) ?? "—"} tone={moneyTone(analytics.returnPercent)} />
-        </div>
+    <div className="grid gap-3">
+      <section className="grid gap-2 sm:grid-cols-2">
+        <PerformerCard title="Best return" holding={analytics.best} />
+        <PerformerCard title="Worst return" holding={analytics.worst} />
       </section>
-      <section className="grid gap-3">
-        <h2 className="font-serif text-2xl">Performance</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <PerformerCard title="Best-performing holding" holding={analytics.best} />
-          <PerformerCard title="Worst-performing holding" holding={analytics.worst} />
-        </div>
-        <PnlByHolding analytics={analytics} />
-      </section>
-      <section className="grid gap-4">
-        <h2 className="font-serif text-2xl">Allocation</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
+      <PnlByHolding analytics={analytics} />
+      <div className="grid gap-3 lg:grid-cols-2">
           <AllocationList
             title="Holding allocation"
             empty={analytics.mixedCurrencies ? "Allocation is not combined across currencies." : "No positions to allocate."}
@@ -302,41 +304,23 @@ function AnalyticsSummary({ analytics }: { analytics: PortfolioAnalytics }) {
             }))}
             currency={currency}
           />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function AnalyticsFigure({ label, value, tone, featured }: { label: string; value: string; tone?: string; featured?: boolean }) {
-  return (
-    <div className={`surface px-4 py-4 ${featured ? "sm:col-span-2 lg:col-span-1" : ""}`}>
-      <p className="text-xs tracking-[0.14em] text-brass uppercase">{label}</p>
-      <p className={`mt-2 font-serif tabular-nums ${featured ? "text-4xl" : "text-2xl"} ${tone ?? "text-foreground"}`}>{value}</p>
+      </div>
     </div>
   );
 }
 
 function PerformerCard({ title, holding }: { title: string; holding: HoldingAnalytics | null }) {
   return (
-    <div className="surface px-4 py-4">
-      <h3 className="font-serif text-xl">{title}</h3>
+    <div className="surface px-3 py-2 text-sm">
+      <p className="text-xs text-muted">{title}</p>
       {holding ? (
-        <div className="mt-3 grid gap-2">
-          <p>
-            <Link href={`/instruments/${holding.instrumentId}`} className="text-foreground">{holding.symbol}</Link>
-            <span className="text-sm text-muted"> · {holding.exchange}</span>
-          </p>
-          <p className={`font-serif text-2xl tabular-nums ${moneyTone(holding.pnl)}`}>
-            {formatMoney(holding.pnl, holding.currency)}
-          </p>
-          <p className={`text-sm tabular-nums ${moneyTone(holding.returnPercent)}`}>
-            {formatPercent(holding.returnPercent) ?? "Return unavailable"}
-          </p>
-          <DataMark quality={holding.quality} source={holding.source} />
-        </div>
+        <p className="mt-1">
+          <Link href={`/instruments/${holding.instrumentId}`} className="font-semibold text-foreground">{holding.symbol}</Link>
+          <span className={`ml-2 tabular-nums ${moneyTone(holding.pnl)}`}>{formatSignedMoney(holding.pnl, holding.currency)}</span>
+          <span className={`ml-2 tabular-nums ${moneyTone(holding.returnPercent)}`}>{formatPercent(holding.returnPercent) ?? "—"} {directionMark(holding.returnPercent)}</span>
+        </p>
       ) : (
-        <p className="mt-2 text-sm text-muted">No valued holding to compare.</p>
+        <p className="mt-1 text-muted">No valued holding to compare.</p>
       )}
     </div>
   );
@@ -354,8 +338,8 @@ function AllocationList({
   currency: string | null;
 }) {
   return (
-    <div className="surface px-4 py-4">
-      <h3 className="font-serif text-xl">{title}</h3>
+    <div className="surface px-3 py-3">
+      <h3 className="text-sm font-semibold">{title}</h3>
       {rows.length === 0 ? (
         <p className="mt-2 text-sm text-muted">{empty}</p>
       ) : (
@@ -371,8 +355,8 @@ function AllocationList({
                   {shareLabel(row.percentage)} · {formatMoney(row.invested, currency)}
                 </span>
               </div>
-              <span className="block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden="true">
-                <span className="block h-full rounded-full bg-brass" style={{ width: `${barWidth(row.percentage)}%` }} />
+              <span className="chart-track block h-1 overflow-hidden" aria-hidden="true">
+                <span className="chart-fill block h-full" style={{ width: `${barWidth(row.percentage)}%` }} />
               </span>
             </li>
           ))}
@@ -385,8 +369,8 @@ function AllocationList({
 function PnlByHolding({ analytics }: { analytics: PortfolioAnalytics }) {
   if (analytics.mixedCurrencies) {
     return (
-      <div className="surface px-4 py-4">
-        <h3 className="font-serif text-xl">P&L by holding</h3>
+      <div className="surface px-3 py-3">
+        <h3 className="text-sm font-semibold">P&L by holding</h3>
         <p className="mt-2 text-sm leading-6 text-muted">
           Holdings use more than one currency, so their P&L is not drawn on one scale.
         </p>
@@ -408,7 +392,7 @@ function PnlByHolding({ analytics }: { analytics: PortfolioAnalytics }) {
   const scale = ranked.reduce((max, holding) => holding.pnl == null ? max : Math.max(max, Math.abs(holding.pnl)), 0);
   return (
     <div className="surface px-4 py-4">
-      <h3 className="font-serif text-xl">P&L by holding</h3>
+        <h3 className="text-sm font-semibold">P&L by holding</h3>
       {ranked.length === 0 ? (
         <p className="mt-2 text-sm text-muted">No holdings to compare.</p>
       ) : (
@@ -418,17 +402,20 @@ function PnlByHolding({ analytics }: { analytics: PortfolioAnalytics }) {
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <span className="text-foreground">{holding.symbol}</span>
                 <span className={`tabular-nums ${moneyTone(holding.pnl)}`}>
-                  {formatMoney(holding.pnl, holding.currency)}
+                  {directionMark(holding.pnl)} {formatSignedMoney(holding.pnl, holding.currency)}
                   <span className="text-muted"> · {formatPercent(holding.returnPercent) ?? "Return unavailable"}</span>
                 </span>
               </div>
               {holding.pnl == null ? (
                 <p className="text-xs text-muted">No quote, so this P&L is not shown as a bar.</p>
               ) : (
-                <span className="block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden="true">
+                <span className="chart-track relative block h-2" aria-hidden="true">
+                  <span className="absolute top-0 left-1/2 h-full w-px bg-foreground/25" />
                   <span
-                    className={`block h-full rounded-full ${holding.pnl < 0 ? "bg-negative" : "bg-positive"}`}
-                    style={{ width: `${pnlWidth(holding.pnl, scale)}%` }}
+                    className={`absolute top-0 h-full ${holding.pnl < 0 ? "bg-negative" : holding.pnl > 0 ? "bg-positive" : "bg-muted"}`}
+                    style={holding.pnl < 0
+                      ? { right: "50%", width: `${pnlWidth(holding.pnl, scale) / 2}%` }
+                      : { left: "50%", width: `${pnlWidth(holding.pnl, scale) / 2}%` }}
                   />
                 </span>
               )}
@@ -440,12 +427,19 @@ function PnlByHolding({ analytics }: { analytics: PortfolioAnalytics }) {
   );
 }
 
-function shareLabel(value: number): string {
+function shareLabel(value: number | null): string {
+  if (value == null) {
+    return "—";
+  }
   const formatted = formatPercent(value);
   if (!formatted) {
     return "—";
   }
   return formatted.startsWith("+") ? formatted.slice(1) : formatted;
+}
+
+function allocationFor(position: Position, analytics: PortfolioAnalytics | null): number | null {
+  return analytics?.instrumentAllocations.find((slice) => slice.instrumentId === position.instrument.id)?.percentage ?? null;
 }
 
 function barWidth(percentage: number): number {
@@ -499,13 +493,14 @@ function HoldingsSection({
   }
   return (
     <section className="grid gap-3">
-      <h2 className="font-serif text-2xl">Holdings</h2>
+      <h2 className="text-sm font-semibold">Holdings</h2>
       <div className="grid gap-3 md:hidden">
         {portfolio.positions.map((position) => (
           <HoldingCard
             key={position.id}
             position={position}
             holding={matchHolding(position, analytics)}
+            allocation={allocationFor(position, analytics)}
             figuresReady={analytics != null}
             editing={editingId === position.id}
             editQuantity={editQuantity}
@@ -519,18 +514,20 @@ function HoldingsSection({
           />
         ))}
       </div>
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[46rem] text-left text-sm">
-          <thead className="text-xs tracking-wide text-muted uppercase">
+      <div className="surface hidden overflow-x-auto md:block">
+        <table className="market-table min-w-[64rem]">
+          <thead>
             <tr>
-              <th className="px-3 py-2 font-medium">Symbol</th>
-              <th className="px-3 py-2 font-medium">Quantity</th>
-              <th className="px-3 py-2 font-medium">Average price</th>
-              <th className="px-3 py-2 font-medium">Current value</th>
-              <th className="px-3 py-2 font-medium">P&L</th>
-              <th className="px-3 py-2 font-medium">Return</th>
-              <th className="px-3 py-2 font-medium">Quote</th>
-              <th className="px-3 py-2 font-medium">Actions</th>
+              <th>Holding</th>
+              <th className="num">Qty</th>
+              <th className="num">Avg. price</th>
+              <th className="num">Current price</th>
+              <th className="num">Current value</th>
+              <th className="num">P&L</th>
+              <th className="num">Return</th>
+              <th className="num">Allocation</th>
+              <th>Quality</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -539,6 +536,7 @@ function HoldingsSection({
                 key={position.id}
                 position={position}
                 holding={matchHolding(position, analytics)}
+                allocation={allocationFor(position, analytics)}
                 figuresReady={analytics != null}
                 editing={editingId === position.id}
                 editQuantity={editQuantity}
@@ -558,22 +556,25 @@ function HoldingsSection({
   );
 }
 
-function HoldingCard(props: HoldingEditors & { position: Position; holding: HoldingAnalytics | null; figuresReady: boolean }) {
-  const { position, holding, figuresReady } = props;
+function HoldingCard(props: HoldingEditors & { position: Position; holding: HoldingAnalytics | null; allocation: number | null; figuresReady: boolean }) {
+  const { position, holding, allocation, figuresReady } = props;
   return (
     <article className="surface grid gap-3 px-4 py-4 text-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <Link href={`/instruments/${position.instrument.id}`} className="text-foreground">{position.instrument.symbol}</Link>
+          <Link href={`/instruments/${position.instrument.id}`} className="font-semibold text-foreground">{position.instrument.symbol}</Link>
           <p className="text-xs text-muted">{position.instrument.displayName}</p>
         </div>
         {figuresReady ? <DataMark quality={holding?.quality ?? null} source={holding?.source ?? null} /> : <span className="text-xs text-muted">—</span>}
       </div>
       <dl className="grid grid-cols-2 gap-3">
         <FigureTerm label="Quantity" value={props.editing ? null : formatQuantity(position.quantity)} />
-        <FigureTerm label="Current value" value={formatMoney(holding?.currentValue, holding?.currency)} tone={moneyTone(holding?.pnl ?? null)} />
-        <FigureTerm label="P&L" value={formatMoney(holding?.pnl, holding?.currency)} tone={moneyTone(holding?.pnl ?? null)} />
+        <FigureTerm label="Average price" value={formatMoney(position.averageBuyPrice, holding?.currency ?? position.quote?.currency)} />
+        <FigureTerm label="Last price" value={formatMoney(position.quote?.price, position.quote?.currency)} />
+        <FigureTerm label="Value" value={formatMoney(holding?.currentValue, holding?.currency)} />
+        <FigureTerm label="P&L" value={`${directionMark(holding?.pnl)} ${formatSignedMoney(holding?.pnl, holding?.currency)}`.trim()} tone={moneyTone(holding?.pnl ?? null)} />
         <FigureTerm label="Return" value={formatPercent(holding?.returnPercent ?? null) ?? "—"} tone={moneyTone(holding?.returnPercent ?? null)} />
+        <FigureTerm label="Allocation" value={shareLabel(allocation)} />
       </dl>
       <HoldingEditors
         editing={props.editing}
@@ -602,6 +603,7 @@ function FigureTerm({ label, value, tone }: { label: string; value: string | nul
 function HoldingRow({
   position,
   holding,
+  allocation,
   figuresReady,
   editing,
   editQuantity,
@@ -612,24 +614,26 @@ function HoldingRow({
   onCancel,
   onSave,
   onRemove,
-}: HoldingEditors & { position: Position; holding: HoldingAnalytics | null; figuresReady: boolean }) {
+}: HoldingEditors & { position: Position; holding: HoldingAnalytics | null; allocation: number | null; figuresReady: boolean }) {
   return (
-    <tr className="border-t border-line">
-      <td className="px-3 py-3">
-        <Link href={`/instruments/${position.instrument.id}`} className="text-foreground">{position.instrument.symbol}</Link>
+    <tr>
+      <td>
+        <Link href={`/instruments/${position.instrument.id}`} className="font-semibold text-foreground">{position.instrument.symbol}</Link>
         <p className="text-xs text-muted">{position.instrument.displayName}</p>
       </td>
-      <td className="px-3 py-3 tabular-nums">
+      <td className="num">
         {editing ? <input className="field" value={editQuantity} onChange={(event) => onEditQuantity(event.target.value)} /> : formatQuantity(position.quantity)}
       </td>
-      <td className="px-3 py-3 tabular-nums">
+      <td className="num">
         {editing ? <input className="field" value={editPrice} onChange={(event) => onEditPrice(event.target.value)} /> : formatMoney(position.averageBuyPrice, holding?.currency ?? position.quote?.currency)}
       </td>
-      <td className="px-3 py-3 tabular-nums">{formatMoney(holding?.currentValue, holding?.currency)}</td>
-      <td className={`px-3 py-3 tabular-nums ${moneyTone(holding?.pnl ?? null)}`}>{formatMoney(holding?.pnl, holding?.currency)}</td>
-      <td className={`px-3 py-3 tabular-nums ${moneyTone(holding?.returnPercent ?? null)}`}>{formatPercent(holding?.returnPercent ?? null) ?? "—"}</td>
-      <td className="px-3 py-3">{figuresReady ? <DataMark quality={holding?.quality ?? null} source={holding?.source ?? null} /> : <span className="text-xs text-muted">—</span>}</td>
-      <td className="px-3 py-3">
+      <td className="num">{formatMoney(position.quote?.price, position.quote?.currency)}</td>
+      <td className="num">{formatMoney(holding?.currentValue, holding?.currency)}</td>
+      <td className={`num ${moneyTone(holding?.pnl ?? null)}`}>{directionMark(holding?.pnl)} {formatSignedMoney(holding?.pnl, holding?.currency)}</td>
+      <td className={`num ${moneyTone(holding?.returnPercent ?? null)}`}>{formatPercent(holding?.returnPercent ?? null) ?? "—"}</td>
+      <td className="num">{shareLabel(allocation)}</td>
+      <td>{figuresReady ? <DataMark quality={holding?.quality ?? null} source={holding?.source ?? null} /> : <span className="text-xs text-muted">—</span>}</td>
+      <td>
         <RowActions editing={editing} onStartEdit={onStartEdit} onCancel={onCancel} onSave={onSave} onRemove={onRemove} />
       </td>
     </tr>
@@ -717,14 +721,9 @@ function DataMark({ quality, source }: { quality: MarketDataQuality | null; sour
   if (!quality && !source) {
     return <span className="text-xs text-muted">No quote</span>;
   }
-  const tone = quality === "REAL_TIME"
-    ? "border-positive text-positive"
-    : quality === "DELAYED" || quality === "END_OF_DAY"
-      ? "border-brass text-brass"
-      : "border-negative text-negative";
   return (
     <span className="flex flex-wrap items-center gap-2">
-      {quality ? <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${tone}`}>{qualityLabel(quality)}</span> : null}
+      {quality ? <QualityBadge quality={quality} /> : null}
       {source ? <span className="text-xs text-muted">{sourceLabel(source)}</span> : null}
     </span>
   );

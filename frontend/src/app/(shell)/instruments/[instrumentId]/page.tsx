@@ -59,8 +59,8 @@ export default function InstrumentPage() {
   return (
     <div className="grid gap-6">
       <header>
-        <p className="text-xs tracking-[0.16em] text-brass uppercase">{detail.instrument.exchange} · {detail.instrument.instrumentType}</p>
-        <h1 className="mt-2 font-serif text-4xl">{detail.instrument.symbol}</h1>
+        <p className="text-xs text-muted">{detail.instrument.exchange} · {detail.instrument.instrumentType}</p>
+        <h1 className="text-lg font-semibold">{detail.instrument.symbol}</h1>
         <p className="mt-2 text-muted">{detail.instrument.displayName}</p>
         <p className="mt-1 text-sm text-muted">{detail.instrument.sector}</p>
       </header>
@@ -68,7 +68,7 @@ export default function InstrumentPage() {
 
       {!quote ? (
         <div className="surface px-5 py-8">
-          <h2 className="font-serif text-2xl">No quote</h2>
+          <h2 className="text-sm font-semibold">No quote</h2>
           <p className="mt-2 text-sm text-muted">The market-data provider has no quote for this exchange and symbol.</p>
         </div>
       ) : (
@@ -85,7 +85,7 @@ export default function InstrumentPage() {
       )}
 
       <section className="grid gap-3">
-        <h2 className="font-serif text-2xl">Watchlist membership</h2>
+        <h2 className="text-sm font-semibold">Watchlist membership</h2>
         {memberships.length === 0 ? (
           <p className="text-sm text-muted">This instrument is not on one of your watchlists. <Link className="underline" href="/search">Search and add it</Link>.</p>
         ) : (
@@ -100,7 +100,7 @@ export default function InstrumentPage() {
       </section>
 
       <section className="grid gap-3">
-        <h2 className="font-serif text-2xl">Meaningful changes</h2>
+        <h2 className="text-sm font-semibold">Meaningful changes</h2>
         <p className="text-sm leading-6 text-muted">
           These are the changes the backend already reported for watchlists that contain this instrument.
         </p>
@@ -116,9 +116,9 @@ export default function InstrumentPage() {
 
 function Metric({ label, value, detail, tone, badge }: { label: string; value: string; detail?: string; tone?: string; badge?: ReactNode }) {
   return (
-    <div className="surface px-4 py-4">
-      <p className="text-xs tracking-wide text-muted uppercase">{label}</p>
-      <p className="mt-2 text-lg tabular-nums">{value}</p>
+    <div className="surface px-3 py-2">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="text-base font-semibold tabular-nums">{value}</p>
       {detail ? <p className={`mt-1 text-sm tabular-nums ${tone ?? "text-muted"}`}>{detail}</p> : null}
       {badge ? <p className="mt-2">{badge}</p> : null}
     </div>
