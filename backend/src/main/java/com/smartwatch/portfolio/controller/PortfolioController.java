@@ -1,10 +1,12 @@
 package com.smartwatch.portfolio.controller;
 
+import com.smartwatch.portfolio.dto.PortfolioAnalyticsResponse;
 import com.smartwatch.portfolio.dto.PortfolioNameRequest;
 import com.smartwatch.portfolio.dto.PortfolioResponse;
 import com.smartwatch.portfolio.dto.PositionRequest;
 import com.smartwatch.portfolio.dto.PositionResponse;
 import com.smartwatch.portfolio.dto.UpdatePositionRequest;
+import com.smartwatch.portfolio.service.PortfolioAnalyticsService;
 import com.smartwatch.portfolio.service.PortfolioQueryService;
 import com.smartwatch.user.security.AuthenticatedUser;
 import jakarta.validation.Valid;
@@ -28,10 +30,15 @@ import java.util.UUID;
 public class PortfolioController {
 
     private final PortfolioQueryService portfolioService;
+    private final PortfolioAnalyticsService portfolioAnalyticsService;
     private final AuthenticatedUser authenticatedUser;
 
-    public PortfolioController(PortfolioQueryService portfolioService, AuthenticatedUser authenticatedUser) {
+    public PortfolioController(
+            PortfolioQueryService portfolioService,
+            PortfolioAnalyticsService portfolioAnalyticsService,
+            AuthenticatedUser authenticatedUser) {
         this.portfolioService = portfolioService;
+        this.portfolioAnalyticsService = portfolioAnalyticsService;
         this.authenticatedUser = authenticatedUser;
     }
 
@@ -53,6 +60,13 @@ public class PortfolioController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(portfolioService.get(authenticatedUser.requireId(), portfolioId));
+    }
+
+    @GetMapping("/{portfolioId}/analytics")
+    public ResponseEntity<PortfolioAnalyticsResponse> analytics(@PathVariable UUID portfolioId) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(portfolioAnalyticsService.analytics(authenticatedUser.requireId(), portfolioId));
     }
 
     @PatchMapping("/{portfolioId}")

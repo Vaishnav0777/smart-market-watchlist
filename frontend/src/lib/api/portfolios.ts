@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api/client";
-import type { Portfolio, Position } from "@/lib/types";
+import type { Portfolio, PortfolioAnalytics, Position } from "@/lib/types";
 
 export function listPortfolios(): Promise<Portfolio[]> {
   return apiRequest<Portfolio[]>("/api/v1/portfolios");
@@ -7,6 +7,10 @@ export function listPortfolios(): Promise<Portfolio[]> {
 
 export function getPortfolio(portfolioId: string): Promise<Portfolio> {
   return apiRequest<Portfolio>(`/api/v1/portfolios/${portfolioId}`);
+}
+
+export function getPortfolioAnalytics(portfolioId: string): Promise<PortfolioAnalytics> {
+  return apiRequest<PortfolioAnalytics>(`/api/v1/portfolios/${portfolioId}/analytics`);
 }
 
 export function createPortfolio(name: string): Promise<Portfolio> {

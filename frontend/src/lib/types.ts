@@ -179,3 +179,53 @@ export type Portfolio = {
   updatedAt: string;
   positions: Position[];
 };
+
+export type HoldingAnalytics = {
+  instrumentId: string;
+  symbol: string;
+  exchange: string;
+  sector: string;
+  currency: string | null;
+  invested: number;
+  currentValue: number | null;
+  pnl: number | null;
+  returnPercent: number | null;
+  quality: MarketDataQuality | null;
+  source: MarketDataSource | null;
+  marketTimestamp: string | null;
+  observedAt: string | null;
+};
+
+export type SectorAllocation = {
+  sector: string;
+  invested: number;
+  percentage: number;
+};
+
+export type InstrumentAllocation = {
+  instrumentId: string;
+  symbol: string;
+  exchange: string;
+  sector: string;
+  invested: number;
+  percentage: number;
+};
+
+export type PortfolioAnalytics = {
+  portfolioId: string;
+  currency: string | null;
+  mixedCurrencies: boolean;
+  realTime: boolean;
+  totalInvested: number | null;
+  currentValue: number | null;
+  totalPnl: number | null;
+  returnPercent: number | null;
+  winners: number;
+  losers: number;
+  unvaluedPositions: number;
+  best: HoldingAnalytics | null;
+  worst: HoldingAnalytics | null;
+  sectorAllocations: SectorAllocation[];
+  instrumentAllocations: InstrumentAllocation[];
+  holdings: HoldingAnalytics[];
+};
